@@ -1,4 +1,4 @@
-// SOLMAR HEAT — Main Boot & Game Loop
+// SOLMAR HEAT — Main Boot & Game Loop with Audio & Effects Integration
 import { CONFIG } from './config.js';
 import { Input } from './input.js';
 import { Random } from './random.js';
@@ -14,6 +14,8 @@ import { Vehicle } from './vehicle.js';
 import { PoliceManager } from './police.js';
 import { CombatManager } from './combat.js';
 import { MissionManager } from './missions.js';
+import { AudioManager } from './audio.js';
+import { EffectsManager } from './effects.js';
 
 class Game {
   constructor() {
@@ -22,6 +24,8 @@ class Game {
     this.renderer = new Renderer(this.canvas);
     this.hud = new HUD();
     this.missionManager = new MissionManager();
+    this.audioManager = new AudioManager();
+    this.effectsManager = new EffectsManager();
 
     this.world = null;
     this.player = null;
@@ -46,14 +50,15 @@ class Game {
     const btnRetry = document.getElementById('btn-retry');
     const btnGoTitle = document.getElementById('btn-go-title');
 
-    if (btnNew) btnNew.addEventListener('click', () => this.startNewGame());
-    if (btnCont) btnCont.addEventListener('click', () => this.continueGame());
-    if (btnResume) btnResume.addEventListener('click', () => this.resumeGame());
-    if (btnQuit) btnQuit.addEventListener('click', () => this.goToTitle());
-    if (btnRetry) btnRetry.addEventListener('click', () => this.startNewGame());
-    if (btnGoTitle) btnGoTitle.addEventListener('click', () => this.goToTitle());
+    const clickSound = () => { if (this.audioManager) this.audioManager.playClick(); };
 
-    // Add Save Progress button to pause screen if not present
+    if (btnNew) btnNew.addEventListener('click', () => { clickSound(); this.startNewGame(); });
+    if (btnCont) btnCont.addEventListener('click', () => { clickSound(); this.continueGame(); });
+    if (btnResume) btnResume.addEventListener('click', () => { clickSound(); this.resumeGame(); });
+    if (btnQuit) btnQuit.addEventListener('click', () => { clickSound(); this.goToTitle(); });
+    if (btnRetry) btnRetry.addEventListener('click', () => { clickSound(); this.startNewGame(); });
+    if (btnGoTitle) btnGoTitle.addEventListener('click', () => { clickSound(); this.goToTitle(); });
+
     const pauseScreenContent = document.querySelector('#pause-screen .screen-content');
     if (pauseScreenContent && !document.getElementById('btn-save-game')) {
       const saveBtn = document.createElement('button');
@@ -62,6 +67,7 @@ class Game {
       saveBtn.textContent = 'SAVE PROGRESS';
       saveBtn.style.marginTop = '10px';
       saveBtn.addEventListener('click', () => {
+        clickSound();
         this.saveProgress();
         saveBtn.textContent = 'PROGRESS SAVED!';
         setTimeout(() => { saveBtn.textContent = 'SAVE PROGRESS'; }, 2000);
@@ -71,6 +77,7 @@ class Game {
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape') {
+        clickSound();
         if (this.state === 'PLAYING') {
           this.pauseGame();
         } else if (this.state === 'PAUSED') {
@@ -78,11 +85,13 @@ class Game {
         }
       }
       if (e.code === 'Enter') {
+        clickSound();
         if (this.state === 'GAMEOVER') {
           this.goToTitle();
         } else if (this.missionManager.state === 'BRIEFING') {
           this.missionManager.beginActiveMission();
         } else if (this.missionManager.state === 'COMPLETE') {
+          this.audioManager.playMissionComplete();
           this.missionManager.advanceToNext();
           this.saveProgress();
         } else if (this.missionManager.state === 'ALL_COMPLETE') {
@@ -92,6 +101,7 @@ class Game {
       }
       if (e.code === 'KeyR') {
         if (this.missionManager.state === 'FAILED') {
+          clickSound();
           this.retryCurrentMission();
         }
       }
@@ -128,7 +138,6 @@ class Game {
     this.hud.show();
     this.state = 'PLAYING';
 
-    // Start first mission briefing automatically
     this.missionManager.startBriefing(0);
   }
 
@@ -151,9 +160,6 @@ class Game {
     this.hideAllScreens();
     this.hud.show();
     this.state = 'PLAYING';
-
-    // Start briefing or active mission for current index
-    this.missionManager.startBriefing(this.missionManager.currentIndex);
   }
 
   retryCurrentMission() {
@@ -218,8 +224,7 @@ class Game {
       document.getElementById('title-screen').classList.remove('hidden');
       this.hud.hide();
 
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;
     } else if (shot === 'drive') {
@@ -247,12 +252,11 @@ class Game {
         this.player.x = car.x;
         this.player.y = car.y;
         this.player.angle = car.angle;
-        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60);
+        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60, this.effectsManager);
       }
 
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;
     } else if (shot === 'chase') {
@@ -264,13 +268,11 @@ class Game {
       this.combatManager = new CombatManager(this.world);
 
       this.player.wanted = 3;
-      // Spawn player car on clear vertical straight road segment (x: 380, y: 150) facing south (Math.PI/2)
       const car = new Vehicle(380, 150, Math.PI / 2, '#ef4444');
-      car.speed = 340; // ~85 MPH display
+      car.speed = 340;
       this.trafficManager.cars.push(car);
       this.player.enterCar(car, this.hud);
 
-      // Police cars strictly BEHIND the player car on open road
       const p1 = new Vehicle(380, 270, Math.PI / 2, '#1e3a8a');
       p1.speed = 360;
       p1.driver = 'police';
@@ -283,7 +285,6 @@ class Game {
       this.hideAllScreens();
       this.hud.show();
 
-      // Simulate with throttle held
       const control = { forward: true, reverse: false, left: false, right: false, handbrake: false };
       for (let i = 0; i < 50; i++) {
         this.trafficManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
@@ -292,12 +293,11 @@ class Game {
         this.player.x = car.x;
         this.player.y = car.y;
         this.player.angle = car.angle;
-        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60);
+        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60, this.effectsManager);
       }
 
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;
     } else if (shot === 'mission') {
@@ -316,8 +316,7 @@ class Game {
       this.hud.show();
 
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;
     }
@@ -357,21 +356,33 @@ class Game {
         }
 
         if (this.combatManager) {
+          const oldAmmo = this.combatManager.ammo;
           this.combatManager.update(dt, this.input, this.player, this.trafficManager, this.pedestrianManager, this.policeManager);
+          if (this.combatManager.ammo < oldAmmo) {
+            this.audioManager.playGunshot();
+            this.effectsManager.addSpark(this.player.x + Math.cos(this.player.angle)*20, this.player.y + Math.sin(this.player.angle)*20, '#fef08a', 5);
+          }
         }
 
         this.player.update(dt, this.input, this.world, this.trafficManager, this.hud);
 
+        // Update audio & effects
+        this.audioManager.updateEngineAndSiren(this.player, this.policeManager, dt);
+        this.effectsManager.update(dt);
+
         if (this.missionManager) {
+          const prevMissionState = this.missionManager.state;
           this.missionManager.update(dt, this.player, this.combatManager, this.policeManager, this.world);
-          if (this.missionManager.state === 'COMPLETE') {
+          if (this.missionManager.state === 'COMPLETE' && prevMissionState !== 'COMPLETE') {
+            this.audioManager.playMissionComplete();
             const m = this.missionManager.getCurrentMission();
             if (m && !this._missionPaid) {
               this.player.money += m.payout;
               this._missionPaid = true;
               this.saveProgress();
             }
-          } else {
+          } else if (this.missionManager.state !== 'COMPLETE') {
+            this.missionManager.advanceToNext; // keep state clean
             this._missionPaid = false;
           }
         }
@@ -379,6 +390,9 @@ class Game {
         if (this.player.inCar && this.player.currentCar) {
           if (this.player.currentCar.wrecked) {
             this.player.health = 0;
+            this.audioManager.playCrash(true);
+            this.effectsManager.triggerScreenShake(12, 0.4);
+            this.effectsManager.addSpark(this.player.x, this.player.y, '#f97316', 30);
           }
         }
 
@@ -387,7 +401,7 @@ class Game {
           return;
         }
 
-        this.renderer.updateCamera(this.player.x, this.player.y, dt);
+        this.renderer.updateCamera(this.player.x, this.player.y, dt, this.effectsManager);
         this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
       }
     }
@@ -404,7 +418,7 @@ class Game {
         this.combatManager = new CombatManager(this.world);
       }
     }
-    this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+    this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
   }
 }
 

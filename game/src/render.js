@@ -1,4 +1,4 @@
-// SOLMAR HEAT — Canvas Renderer & Camera
+// SOLMAR HEAT — Canvas Renderer & Camera with Visual Polish
 import { CONFIG } from './config.js';
 
 export class Renderer {
@@ -19,18 +19,18 @@ export class Renderer {
     this.canvas.height = window.innerHeight;
   }
 
-  updateCamera(targetX, targetY, dt) {
+  updateCamera(targetX, targetY, dt, effectsManager) {
     const lerp = CONFIG.CAMERA_LERP;
-    this.camera.x += (targetX - this.camera.x) * (1 - Math.pow(0.001, dt));
-    this.camera.y += (targetY - this.camera.y) * (1 - Math.pow(0.001, dt));
+    const shakeOffset = effectsManager ? effectsManager.getCameraOffset() : { x: 0, y: 0 };
+    this.camera.x += (targetX + shakeOffset.x - this.camera.x) * (1 - Math.pow(0.001, dt));
+    this.camera.y += (targetY + shakeOffset.y - this.camera.y) * (1 - Math.pow(0.001, dt));
   }
 
-  render(world, player, input, trafficManager, pedestrianManager, policeManager, combatManager) {
+  render(world, player, input, trafficManager, pedestrianManager, policeManager, combatManager, effectsManager) {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    // Clear background
     ctx.fillStyle = '#0a0c14';
     ctx.fillRect(0, 0, width, height);
 
@@ -42,6 +42,11 @@ export class Renderer {
     ctx.translate(cx, cy);
 
     this.renderWorldBackground(ctx, world);
+    
+    if (effectsManager) {
+      effectsManager.renderSkidMarks(ctx);
+    }
+
     this.renderBuildings(ctx, world);
     this.renderParkedCars(ctx, world);
     this.renderProps(ctx, world);
@@ -78,6 +83,10 @@ export class Renderer {
       combatManager.render(ctx, player);
     }
 
+    if (effectsManager) {
+      effectsManager.renderParticles(ctx);
+    }
+
     if (window.game && window.game.missionManager) {
       const wp = window.game.missionManager.getCurrentWaypoint();
       if (wp) {
@@ -92,7 +101,6 @@ export class Renderer {
     ctx.save();
     ctx.translate(wp.x, wp.y);
 
-    // Glowing gold marker ring
     ctx.strokeStyle = '#fbbf24';
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -104,7 +112,6 @@ export class Renderer {
     ctx.arc(0, 0, 24, 0, Math.PI * 2);
     ctx.fill();
 
-    // Inner diamond
     ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
     ctx.moveTo(0, -14);
@@ -126,7 +133,7 @@ export class Renderer {
     ctx.arc(1, 2, 10, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#1e3a8a'; // police blue uniform
+    ctx.fillStyle = '#1e3a8a';
     ctx.beginPath();
     ctx.arc(0, 0, 10, 0, Math.PI * 2);
     ctx.fill();
@@ -141,50 +148,93 @@ export class Renderer {
 
   renderWorldBackground(ctx, world) {
     const size = CONFIG.WORLD_SIZE;
-    ctx.fillStyle = '#181b25';
+    ctx.fillStyle = '#1e2230'; // Lighter sidewalk/road edge tint
     ctx.fillRect(-size / 2, -size / 2, size, size);
-
-    ctx.strokeStyle = '#272d3f';
-    ctx.lineWidth = CONFIG.ROAD_WIDTH;
 
     const blockSize = CONFIG.BLOCK_SIZE;
     const roadWidth = CONFIG.ROAD_WIDTH;
     const step = blockSize + roadWidth;
 
+    // Road surface
+    ctx.fillStyle = '#111420';
     for (let x = -size / 2; x <= size / 2; x += step) {
+      ctx.fillRect(x, -size / 2, roadWidth, size);
+    }
+    for (let y = -size / 2; y <= size / 2; y += step) {
+      ctx.fillRect(-size / 2, y, size, roadWidth);
+    }
+
+    // Dashed center lane markings (yellow)
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([16, 16]);
+
+    for (let x = -size / 2 + roadWidth / 2; x <= size / 2; x += step) {
       ctx.beginPath();
       ctx.moveTo(x, -size / 2);
       ctx.lineTo(x, size / 2);
       ctx.stroke();
     }
-    for (let y = -size / 2; y <= size / 2; y += step) {
+    for (let y = -size / 2 + roadWidth / 2; y <= size / 2; y += step) {
       ctx.beginPath();
       ctx.moveTo(-size / 2, y);
       ctx.lineTo(size / 2, y);
       ctx.stroke();
     }
+    ctx.setLineDash([]); // reset
   }
 
   renderBuildings(ctx, world) {
     if (!world || !world.buildings) return;
 
     for (const b of world.buildings) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.fillRect(b.x + 8, b.y + 8, b.w, b.h);
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fillRect(b.x + 10, b.y + 10, b.w, b.h);
 
+      // Building base
       ctx.fillStyle = b.color;
       ctx.fillRect(b.x, b.y, b.w, b.h);
 
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.3)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
       ctx.lineWidth = 2;
       ctx.strokeRect(b.x, b.y, b.w, b.h);
 
-      ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
-      const winSize = 8;
-      const winGap = 16;
-      for (let wx = b.x + 12; wx < b.x + b.w - 12; wx += winGap) {
-        for (let wy = b.y + 12; wy < b.y + b.h - 12; wy += winGap) {
-          ctx.fillRect(wx, wy, winSize, winSize);
+      // Windows based on style
+      if (b.windowStyle === 0) {
+        // Grid windows
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.6)';
+        const winSize = 8;
+        const winGap = 16;
+        for (let wx = b.x + 12; wx < b.x + b.w - 12; wx += winGap) {
+          for (let wy = b.y + 12; wy < b.y + b.h - 12; wy += winGap) {
+            if ((wx + wy) % 32 !== 0) { // variation: some dark
+              ctx.fillRect(wx, wy, winSize, winSize);
+            }
+          }
+        }
+      } else if (b.windowStyle === 1) {
+        // Vertical strip windows
+        ctx.fillStyle = 'rgba(96, 165, 250, 0.65)';
+        for (let wx = b.x + 14; wx < b.x + b.w - 14; wx += 20) {
+          ctx.fillRect(wx, b.y + 16, 10, b.h - 32);
+        }
+      } else {
+        // Sparse warm lights
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.8)';
+        ctx.fillRect(b.x + 20, b.y + 20, 12, 12);
+        ctx.fillRect(b.x + b.w - 32, b.y + 20, 12, 12);
+        ctx.fillRect(b.x + 20, b.y + b.h - 32, 12, 12);
+      }
+
+      // Rooftop units / boxes
+      if (b.roofBoxes) {
+        for (const rb of b.roofBoxes) {
+          ctx.fillStyle = rb.rColor;
+          ctx.fillRect(rb.rx, rb.ry, rb.rw, rb.rh);
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(rb.rx, rb.ry, rb.rw, rb.rh);
         }
       }
     }
@@ -218,32 +268,26 @@ export class Renderer {
     ctx.translate(car.x, car.y);
     ctx.rotate(car.angle);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(-car.width / 2 + 4, -car.length / 2 + 4, car.width, car.length);
 
-    // Body
     ctx.fillStyle = car.wrecked ? '#1e293b' : car.color;
     ctx.beginPath();
     ctx.roundRect(-car.width / 2, -car.length / 2, car.width, car.length, 8);
     ctx.fill();
 
-    // Windshield
     ctx.fillStyle = car.wrecked ? '#090d16' : '#0f172a';
     ctx.fillRect(-car.width / 2 + 4, -car.length / 4, car.width - 8, 16);
 
-    // Roof
     if (!car.wrecked) {
       ctx.fillStyle = car.color;
       ctx.fillRect(-car.width / 2 + 6, -car.length / 6, car.width - 12, 24);
     }
 
-    // Headlights
     ctx.fillStyle = '#fef08a';
     ctx.fillRect(-car.width / 2 + 4, -car.length / 2, 6, 4);
     ctx.fillRect(car.width / 2 - 10, -car.length / 2, 6, 4);
 
-    // Wrecked smoke / fire indication
     if (car.wrecked) {
       ctx.fillStyle = 'rgba(100, 100, 100, 0.7)';
       ctx.beginPath();
@@ -263,44 +307,17 @@ export class Renderer {
     ctx.arc(1, 2, 8, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = p.color;
+    ctx.fillStyle = p.color || '#38bdf8';
     ctx.beginPath();
     ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.fill();
 
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
-  }
-
-  renderProps(ctx, world) {
-    if (!world) return;
-
-    if (world.palms) {
-      ctx.fillStyle = '#10b981';
-      for (const p of world.palms) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#047857';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#10b981';
-      }
-    }
-
-    if (world.lamps) {
-      ctx.fillStyle = '#f59e0b';
-      for (const l of world.lamps) {
-        ctx.beginPath();
-        ctx.arc(l.x, l.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
-        ctx.beginPath();
-        ctx.arc(l.x, l.y, 16, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#f59e0b';
-      }
-    }
   }
 
   renderPlayer(ctx, player, input) {
@@ -308,25 +325,66 @@ export class Renderer {
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
-    ctx.arc(2, 4, player.radius, 0, Math.PI * 2);
+    ctx.arc(2, 2, 12, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
-    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#fbbf24';
+    ctx.fillStyle = '#fde047';
     ctx.beginPath();
-    ctx.arc(4, 0, 7, 0, Math.PI * 2);
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#374151';
-    ctx.fillRect(4, -12, 14, 4);
-    ctx.fillRect(4, 8, 14, 4);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(6, -3, 14, 6);
 
     ctx.restore();
+  }
+
+  renderProps(ctx, world) {
+    if (world && world.palms) {
+      for (const palm of world.palms) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.arc(palm.x + 4, palm.y + 4, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#78350f';
+        ctx.beginPath();
+        ctx.arc(palm.x, palm.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#15803d';
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.ellipse(
+            palm.x + Math.cos(a) * 8,
+            palm.y + Math.sin(a) * 8,
+            10, 4, a, 0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+      }
+    }
+
+    if (world && world.lamps) {
+      for (const lamp of world.lamps) {
+        ctx.fillStyle = '#64748b';
+        ctx.beginPath();
+        ctx.arc(lamp.x, lamp.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+        ctx.beginPath();
+        ctx.arc(lamp.x, lamp.y, 35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 }

@@ -1,4 +1,4 @@
-// SOLMAR HEAT — HUD & Minimap Management
+// SOLMAR HEAT — HUD & Minimap Management with Mute Button & Stolen Banner Polish
 export class HUD {
   constructor() {
     this.healthBar = document.getElementById('health-bar');
@@ -9,32 +9,47 @@ export class HUD {
     this.minimapCanvas = document.getElementById('minimap-canvas');
     this.minimapCtx = this.minimapCanvas ? this.minimapCanvas.getContext('2d') : null;
 
-    // Create speedometer / stolen notification element if not present
+    // High-contrast solid dark pill background for VEHICLE STOLEN banner
     this.stolenBanner = document.createElement('div');
     this.stolenBanner.id = 'stolen-banner';
-    this.stolenBanner.style.cssText = 'position:absolute; top:20%; left:50%; transform:translate(-50%,-50%); color:#f59e0b; font-family:monospace; font-size:32px; font-weight:bold; text-shadow:0 2px 8px rgba(0,0,0,0.8); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:100;';
+    this.stolenBanner.style.cssText = 'position:absolute; top:22%; left:50%; transform:translate(-50%,-50%); color:#f59e0b; font-family:monospace; font-size:32px; font-weight:bold; background:rgba(15, 23, 42, 0.92); border:2px solid #f59e0b; padding:12px 28px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,0.85); text-shadow:0 2px 4px rgba(0,0,0,0.8); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:100; letter-spacing:2px;';
     this.stolenBanner.textContent = 'VEHICLE STOLEN';
     document.body.appendChild(this.stolenBanner);
 
     this.speedDisplay = document.createElement('div');
     this.speedDisplay.id = 'speed-display';
-    this.speedDisplay.style.cssText = 'position:absolute; bottom:30px; right:30px; color:#ffffff; font-family:monospace; font-size:24px; font-weight:bold; background:rgba(0,0,0,0.6); padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.2);';
+    this.speedDisplay.style.cssText = 'position:absolute; bottom:30px; right:30px; color:#ffffff; font-family:monospace; font-size:24px; font-weight:bold; background:rgba(15,23,42,0.85); padding:8px 16px; border-radius:8px; border:1px solid rgba(245,158,11,0.4);';
     document.body.appendChild(this.speedDisplay);
 
     this.ammoDisplay = document.createElement('div');
     this.ammoDisplay.id = 'ammo-display';
-    this.ammoDisplay.style.cssText = 'position:absolute; bottom:30px; left:30px; color:#fbbf24; font-family:monospace; font-size:20px; font-weight:bold; background:rgba(0,0,0,0.6); padding:8px 16px; border-radius:6px; border:1px solid rgba(245,158,11,0.3); display:none;';
+    this.ammoDisplay.style.cssText = 'position:absolute; bottom:30px; left:30px; color:#fbbf24; font-family:monospace; font-size:20px; font-weight:bold; background:rgba(15,23,42,0.85); padding:8px 16px; border-radius:8px; border:1px solid rgba(245,158,11,0.4); display:none;';
     document.body.appendChild(this.ammoDisplay);
+
+    // Mute Button on HUD
+    this.muteBtn = document.createElement('button');
+    this.muteBtn.id = 'mute-btn';
+    this.muteBtn.className = 'btn';
+    this.muteBtn.textContent = 'MUTE (M)';
+    this.muteBtn.style.cssText = 'position:absolute; top:20px; right:30px; font-size:14px; padding:8px 16px; background:rgba(15,23,42,0.9); border:1px solid #fbbf24; color:#fbbf24; border-radius:6px; cursor:pointer; z-index:100; font-family:monospace;';
+    this.muteBtn.addEventListener('click', () => {
+      if (window.game && window.game.audioManager) {
+        window.game.audioManager.toggleMute();
+      }
+    });
+    document.body.appendChild(this.muteBtn);
   }
 
   show() {
     if (this.hudContainer) this.hudContainer.classList.remove('hidden');
     if (this.speedDisplay) this.speedDisplay.style.display = 'block';
+    if (this.muteBtn) this.muteBtn.style.display = 'block';
   }
 
   hide() {
     if (this.hudContainer) this.hudContainer.classList.add('hidden');
     if (this.speedDisplay) this.speedDisplay.style.display = 'none';
+    if (this.muteBtn) this.muteBtn.style.display = 'none';
     if (this.stolenBanner) this.stolenBanner.style.opacity = '0';
   }
 
@@ -43,7 +58,7 @@ export class HUD {
       this.stolenBanner.style.opacity = '1';
       setTimeout(() => {
         if (this.stolenBanner) this.stolenBanner.style.opacity = '0';
-      }, 2000);
+      }, 2200);
     }
   }
 
