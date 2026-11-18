@@ -2,9 +2,13 @@
 export class Input {
   constructor() {
     this.keys = {};
+    this.pressedKeys = {};
     this.mouse = { x: 0, y: 0, worldX: 0, worldY: 0, down: false, clicked: false };
 
     window.addEventListener('keydown', (e) => {
+      if (!this.keys[e.code]) {
+        this.pressedKeys[e.code] = true;
+      }
       this.keys[e.code] = true;
       if (['Space', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         // Prevent default browser scrolling
@@ -32,6 +36,12 @@ export class Input {
 
   isDown(code) {
     return !!this.keys[code];
+  }
+
+  consumePressed(code) {
+    const val = !!this.pressedKeys[code];
+    this.pressedKeys[code] = false;
+    return val;
   }
 
   consumeClick() {

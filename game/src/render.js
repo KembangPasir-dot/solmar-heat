@@ -20,54 +20,56 @@ export class Renderer {
   }
 
   updateCamera(targetX, targetY, dt) {
-    // Smooth lerp camera towards target (player)
     const lerp = CONFIG.CAMERA_LERP;
     this.camera.x += (targetX - this.camera.x) * (1 - Math.pow(0.001, dt));
     this.camera.y += (targetY - this.camera.y) * (1 - Math.pow(0.001, dt));
   }
 
-  render(world, player, input) {
+  render(world, player, input, trafficManager, pedestrianManager) {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    // Clear background (sun-soaked twilight/sunset tone)
+    // Clear background
     ctx.fillStyle = '#0a0c14';
     ctx.fillRect(0, 0, width, height);
 
     ctx.save();
 
-    // Translate to center camera on player
     const cx = width / 2 - this.camera.x;
     const cy = height / 2 - this.camera.y;
 
     ctx.translate(cx, cy);
 
-    // Draw grid / ground / roads
     this.renderWorldBackground(ctx, world);
-
-    // Draw buildings
     this.renderBuildings(ctx, world);
-
-    // Draw parked cars
     this.renderParkedCars(ctx, world);
-
-    // Draw palms & lamps
     this.renderProps(ctx, world);
 
-    // Draw player
-    this.renderPlayer(ctx, player, input);
+    if (trafficManager && trafficManager.cars) {
+      for (const car of trafficManager.cars) {
+        this.renderVehicle(ctx, car);
+      }
+    }
+
+    if (pedestrianManager && pedestrianManager.pedestrians) {
+      for (const p of pedestrianManager.pedestrians) {
+        this.renderPedestrian(ctx, p);
+      }
+    }
+
+    if (!player.inCar) {
+      this.renderPlayer(ctx, player, input);
+    }
 
     ctx.restore();
   }
 
   renderWorldBackground(ctx, world) {
     const size = CONFIG.WORLD_SIZE;
-    // Ground / asphalt base
     ctx.fillStyle = '#181b25';
     ctx.fillRect(-size / 2, -size / 2, size, size);
 
-    // Draw roads grid lines
     ctx.strokeStyle = '#272d3f';
     ctx.lineWidth = CONFIG.ROAD_WIDTH;
 
@@ -93,20 +95,16 @@ export class Renderer {
     if (!world || !world.buildings) return;
 
     for (const b of world.buildings) {
-      // Drop shadow
       ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
       ctx.fillRect(b.x + 8, b.y + 8, b.w, b.h);
 
-      // Building base
       ctx.fillStyle = b.color;
       ctx.fillRect(b.x, b.y, b.w, b.h);
 
-      // Roof rim / accent
       ctx.strokeStyle = 'rgba(245, 158, 11, 0.3)';
       ctx.lineWidth = 2;
       ctx.strokeRect(b.x, b.y, b.w, b.h);
 
-      // Windows grid pattern (sunset reflection glow)
       ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
       const winSize = 8;
       const winGap = 16;
@@ -124,19 +122,16 @@ export class Renderer {
     for (const car of world.parkedCars) {
       ctx.save();
       ctx.translate(car.x, car.y);
-      ctx.rotate(car.angle);
+      ctx.rotate(car.angle || 0);
 
-      // Shadow
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillRect(-car.w / 2 + 3, -car.h / 2 + 3, car.w, car.h);
 
-      // Body
       ctx.fillStyle = car.color;
       ctx.beginPath();
       ctx.roundRect(-car.w / 2, -car.h / 2, car.w, car.h, 6);
       ctx.fill();
 
-      // Windshield
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(-car.w / 2 + 4, -car.h / 4, car.w - 8, 12);
 
@@ -144,10 +139,67 @@ export class Renderer {
     }
   }
 
+  renderVehicle(ctx, car) {
+    ctx.save();
+    ctx.translate(car.x, car.y);
+    ctx.rotate(car.angle);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(-car.width / 2 + 4, -car.length / 2 + 4, car.width, car.length);
+
+    // Body
+    ctx.fillStyle = car.wrecked ? '#1e293b' : car.color;
+    ctx.beginPath();
+    ctx.roundRect(-car.width / 2, -car.length / 2, car.width, car.length, 8);
+    ctx.fill();
+
+    // Windshield
+    ctx.fillStyle = car.wrecked ? '#090d16' : '#0f172a';
+    ctx.fillRect(-car.width / 2 + 4, -car.length / 4, car.width - 8, 16);
+
+    // Roof
+    if (!car.wrecked) {
+      ctx.fillStyle = car.color;
+      ctx.fillRect(-car.width / 2 + 6, -car.length / 6, car.width - 12, 24);
+    }
+
+    // Headlights
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(-car.width / 2 + 4, -car.length / 2, 6, 4);
+    ctx.fillRect(car.width / 2 - 10, -car.length / 2, 6, 4);
+
+    // Wrecked smoke / fire indication
+    if (car.wrecked) {
+      ctx.fillStyle = 'rgba(100, 100, 100, 0.7)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  renderPedestrian(ctx, p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(1, 2, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   renderProps(ctx, world) {
     if (!world) return;
 
-    // Palms
     if (world.palms) {
       ctx.fillStyle = '#10b981';
       for (const p of world.palms) {
@@ -162,14 +214,12 @@ export class Renderer {
       }
     }
 
-    // Street Lamps
     if (world.lamps) {
       ctx.fillStyle = '#f59e0b';
       for (const l of world.lamps) {
         ctx.beginPath();
         ctx.arc(l.x, l.y, 4, 0, Math.PI * 2);
         ctx.fill();
-        // Glow
         ctx.fillStyle = 'rgba(245, 158, 11, 0.2)';
         ctx.beginPath();
         ctx.arc(l.x, l.y, 16, 0, Math.PI * 2);
@@ -184,25 +234,21 @@ export class Renderer {
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
 
-    // Shadow
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.beginPath();
     ctx.arc(2, 4, player.radius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body / Jacket (Jax Moreno "Reef")
-    ctx.fillStyle = '#ef4444'; // Red-orange jacket
+    ctx.fillStyle = '#ef4444';
     ctx.beginPath();
     ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Head / Hair
     ctx.fillStyle = '#fbbf24';
     ctx.beginPath();
     ctx.arc(4, 0, 7, 0, Math.PI * 2);
     ctx.fill();
 
-    // Arms / Pistol
     ctx.fillStyle = '#374151';
     ctx.fillRect(4, -12, 14, 4);
     ctx.fillRect(4, 8, 14, 4);

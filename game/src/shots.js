@@ -8,7 +8,10 @@ export function setupShotStaging(gameInstance) {
   if (shot) {
     console.log(`[Shot Staging] Active shot: ${shot}, seed: ${seed}`);
     if (gameInstance && typeof gameInstance.stageShot === 'function') {
-      gameInstance.stageShot(shot, seed);
+      // Defer slightly to ensure DOM/assets are ready
+      requestAnimationFrame(() => {
+        gameInstance.stageShot(shot, seed);
+      });
     }
   }
 
