@@ -158,9 +158,9 @@ class Game {
       this.trafficManager = new TrafficManager(this.world, seed);
       this.pedestrianManager = new PedestrianManager(this.world, seed);
 
-      // Spawn player driving a car with traffic around
-      const car = new Vehicle(120, -40, 0, '#ef4444');
-      car.speed = 220;
+      // Spawn player driving a red car on a safe vertical straight road segment (380, 170) facing down (Math.PI/2)
+      const car = new Vehicle(380, 170, Math.PI / 2, '#ef4444');
+      car.speed = 180;
       this.trafficManager.cars.push(car);
       this.player.enterCar(car, this.hud);
 
@@ -168,11 +168,19 @@ class Game {
       this.hideAllScreens();
       this.hud.show();
 
-      // Update simulation forward a bit to scatter traffic naturally
-      for (let i = 0; i < 30; i++) {
-        this.update(1 / 60);
+      // Simulate forward with throttle held for about one second (60 frames)
+      const control = { forward: true, reverse: false, left: false, right: false, handbrake: false };
+      for (let i = 0; i < 60; i++) {
+        this.trafficManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
+        this.pedestrianManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
+        car.update(1 / 60, control, this.world, this.trafficManager.cars);
+        this.player.x = car.x;
+        this.player.y = car.y;
+        this.player.angle = car.angle;
+        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60);
       }
 
+      this.hud.update(this.player, this.world);
       this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
       this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
 

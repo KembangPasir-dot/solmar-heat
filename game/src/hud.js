@@ -56,8 +56,12 @@ export class HUD {
     }
     this.wantedStars.textContent = starStr;
 
+    const finalObjective = player.inCar
+      ? 'Cruising Solmar Bay. Press E to exit car.'
+      : (objective || 'Explore Solmar Bay. Find a car and press E to steal.');
+
     if (this.objectiveText) {
-      this.objectiveText.textContent = objective;
+      this.objectiveText.textContent = finalObjective;
     }
 
     if (player.inCar && player.currentCar && this.speedDisplay) {

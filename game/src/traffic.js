@@ -24,6 +24,10 @@ export class TrafficManager {
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const car = this.cars[i];
 
+      if (car.driver === 'player') {
+        continue;
+      }
+
       // Despawn if too far from player
       const distSq = (car.x - playerX) ** 2 + (car.y - playerY) ** 2;
       if (distSq > 3000 * 3000) {
