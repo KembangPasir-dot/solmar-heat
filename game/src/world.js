@@ -1,124 +1,103 @@
-// The game's rules and state, with no drawing and no browser in it: the player's paddle, the
-// pool of falling blocks and coins, spawning, collisions, score, lives and level. step() advances
-// one fixed step and returns what happened as bit flags, so the caller can react without the
-// world knowing about screens or sound. Nothing here allocates after createWorld returns.
-import { BLOCK, COIN, FIELD, LEVEL, LIVES, PLAYER, POOL_SIZE } from './config.js';
+// SOLMAR HEAT — City Generation (Solmar Bay)
+import { CONFIG } from './config.js';
+import { Random } from './random.js';
 
-export const KIND_BLOCK = 0;
-export const KIND_COIN = 1;
-
-export const EVENT_HIT = 1;
-export const EVENT_COIN = 2;
-export const EVENT_OVER = 4;
-
-function overlaps(a, b) {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-}
-
-export function createWorld(random) {
-  const player = { x: 0, y: FIELD.groundY - PLAYER.height, width: PLAYER.width, height: PLAYER.height, invulnerable: 0 };
-  const items = [];
-  for (let index = 0; index < POOL_SIZE; index += 1) {
-    items.push({ active: false, kind: KIND_BLOCK, x: 0, y: 0, width: 0, height: 0, speed: 0 });
-  }
-  const state = { player, items, score: 0, lives: LIVES, level: 1, elapsed: 0, blockTimer: 0, coinTimer: 0 };
-
-  function reset() {
-    player.x = (FIELD.width - player.width) / 2;
-    player.invulnerable = 0;
-    for (const item of items) item.active = false;
-    state.score = 0;
-    state.lives = LIVES;
-    state.level = 1;
-    state.elapsed = 0;
-    state.blockTimer = BLOCK.interval;
-    state.coinTimer = COIN.interval;
+export class World {
+  constructor(seed = 12345) {
+    this.random = new Random(seed);
+    this.buildings = [];
+    this.parkedCars = [];
+    this.palms = [];
+    this.lamps = [];
+    this.roadSegments = [];
+    this.generateCity();
   }
 
-  function freeItem() {
-    for (let index = 0; index < items.length; index += 1) if (!items[index].active) return items[index];
-    return null;
-  }
+  generateCity() {
+    const size = CONFIG.WORLD_SIZE;
+    const blockSize = CONFIG.BLOCK_SIZE;
+    const roadWidth = CONFIG.ROAD_WIDTH;
+    const step = blockSize + roadWidth;
 
-  function spawnBlock() {
-    const item = freeItem();
-    if (item === null) return;
-    item.active = true;
-    item.kind = KIND_BLOCK;
-    item.width = BLOCK.minWidth + random() * (BLOCK.maxWidth - BLOCK.minWidth);
-    item.height = BLOCK.height;
-    item.x = random() * (FIELD.width - item.width);
-    item.y = -item.height;
-    item.speed = BLOCK.speed + BLOCK.speedPerLevel * (state.level - 1) + random() * BLOCK.speedJitter;
-  }
+    // Generate grid blocks and buildings
+    for (let x = -size / 2; x < size / 2; x += step) {
+      for (let y = -size / 2; y < size / 2; y += step) {
+        // Determine district based on position
+        const distFromCenter = Math.sqrt(x * x + y * y);
+        let districtIdx = 0;
+        if (distFromCenter < 600) districtIdx = 1; // Downtown
+        else if (x < -600 && y < -600) districtIdx = 2; // Old Town
+        else if (x > 600 && y > 600) districtIdx = 0; // Marina
+        else if (y < -600 && x > 600) districtIdx = 3; // Beachfront
+        else if (x < -600 && y > 600) districtIdx = 4; // Hills
+        else districtIdx = 5; // Industrial
 
-  function spawnCoin() {
-    const item = freeItem();
-    if (item === null) return;
-    item.active = true;
-    item.kind = KIND_COIN;
-    item.width = COIN.size;
-    item.height = COIN.size;
-    item.x = random() * (FIELD.width - item.width);
-    item.y = -item.height;
-    item.speed = COIN.speed + COIN.speedPerLevel * (state.level - 1);
-  }
+        const district = CONFIG.DISTRICTS[districtIdx];
 
-  function blockInterval() {
-    return Math.max(BLOCK.minInterval, BLOCK.interval * BLOCK.intervalScale ** (state.level - 1));
-  }
+        // Building box
+        const bx = x + roadWidth / 2;
+        const by = y + roadWidth / 2;
+        const bw = blockSize;
+        const bh = blockSize;
 
-  /**
-   * One fixed step. `direction` is -1, 0 or 1 (left, still, right). With `harmless` set (the title
-   * screen's backdrop) things fall but nothing touches the player and nothing scores.
-   */
-  function step(dt, direction, harmless) {
-    let events = 0;
-    state.elapsed += dt;
-    state.level = Math.min(LEVEL.max, 1 + Math.floor(state.elapsed / LEVEL.seconds));
+        const bHeight = this.random.range(30, districtIdx === 1 ? 180 : 90);
+        const bColor = this.random.choice(
+          districtIdx === 1 
+            ? ['#1e293b', '#334155', '#475569', '#0f172a'] 
+            : ['#292524', '#44403c', '#1c1917', '#57534e']
+        );
 
-    player.x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * dt));
-    if (player.invulnerable > 0) player.invulnerable = Math.max(0, player.invulnerable - dt);
+        this.buildings.push({
+          x: bx,
+          y: by,
+          w: bw,
+          h: bh,
+          height: bHeight,
+          color: bColor,
+          district: district.name
+        });
 
-    state.blockTimer -= dt;
-    if (state.blockTimer <= 0) {
-      spawnBlock();
-      state.blockTimer += blockInterval();
-    }
-    state.coinTimer -= dt;
-    if (state.coinTimer <= 0) {
-      spawnCoin();
-      state.coinTimer += COIN.interval + random() * COIN.intervalJitter;
-    }
+        // Add parked cars along road edges
+        if (this.random.next() > 0.4) {
+          this.parkedCars.push({
+            x: bx + bw / 2,
+            y: by - 10,
+            w: 24,
+            h: 46,
+            angle: 0,
+            color: this.random.choice(['#ef4444', '#3b82f6', '#10b981', '#eab308', '#a855f7'])
+          });
+        }
 
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (!item.active) continue;
-      item.y += item.speed * dt;
-      if (item.y > FIELD.groundY) {
-        item.active = false;
-        if (item.kind === KIND_BLOCK && !harmless) state.score += BLOCK.dodgePoints;
-        continue;
-      }
-      if (harmless || !overlaps(item, player)) continue;
-      if (item.kind === KIND_COIN) {
-        item.active = false;
-        state.score += COIN.points;
-        events |= EVENT_COIN;
-      } else if (player.invulnerable === 0) {
-        item.active = false;
-        state.lives -= 1;
-        player.invulnerable = PLAYER.invulnerable;
-        events |= EVENT_HIT;
-        if (state.lives === 0) {
-          events |= EVENT_OVER;
-          break;
+        // Add palm trees / street lamps
+        if (this.random.next() > 0.5) {
+          this.palms.push({
+            x: bx - 10,
+            y: by - 10
+          });
+        }
+        if (this.random.next() > 0.6) {
+          this.lamps.push({
+            x: bx + bw + 10,
+            y: by + bh + 10
+          });
         }
       }
     }
-    return events;
   }
 
-  reset();
-  return { state, reset, step };
+  checkCollision(boxX, boxY, radius) {
+    for (const b of this.buildings) {
+      // Circle vs AABB collision
+      const closestX = Math.max(b.x, Math.min(boxX, b.x + b.w));
+      const closestY = Math.max(b.y, Math.min(boxY, b.y + b.h));
+      const distX = boxX - closestX;
+      const distY = boxY - closestY;
+      const distSq = distX * distX + distY * distY;
+      if (distSq < radius * radius) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

@@ -1,134 +1,202 @@
-// Boot and the one loop: input is read every frame, the world advances in fixed 1/60 s steps
-// (several in a slow frame, none in a fast one), and the renderer paints what is there. The game
-// moves between four screens: title, play, paused and game over.
-//
-// ?seed=N fixes the falling pattern. ?shot=start|play|end (with &seed=N) stages that scene
-// instead of running the loop, paints it twice and sets window.__shotReady for a screenshot.
-import { BEST_KEY, LIVES, STEP } from './config.js';
-import { createRandom } from './random.js';
-import { createWorld, EVENT_HIT, EVENT_OVER } from './world.js';
-import { ACTION_CONFIRM, ACTION_PAUSE, createInput } from './input.js';
-import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
-import { stageShot } from './shots.js';
+// SOLMAR HEAT — Main Boot & Game Loop
+import { CONFIG } from './config.js';
+import { Input } from './input.js';
+import { Random } from './random.js';
+import { World } from './world.js';
+import { Player } from './player.js';
+import { Renderer } from './render.js';
+import { HUD } from './hud.js';
+import { SaveSystem } from './save.js';
+import { setupShotStaging } from './shots.js';
 
-/** The longest frame the loop catches up on; a longer stall (a hidden tab) is dropped, not replayed. */
-const MAX_FRAME = 0.25;
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('game-canvas');
+    this.input = new Input();
+    this.renderer = new Renderer(this.canvas);
+    this.hud = new HUD();
 
-const params = new URLSearchParams(window.location.search);
-const shot = params.get('shot');
-const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
-const seed = Number.isInteger(seedParam) ? seedParam : Math.floor(Math.random() * 4294967296);
+    this.world = null;
+    this.player = null;
+    this.state = 'TITLE'; // TITLE, PLAYING, PAUSED, GAMEOVER
+    this.saveData = SaveSystem.load() || SaveSystem.getDefaults();
 
-const canvas = document.getElementById('game');
-const status = document.getElementById('status');
-const world = createWorld(createRandom(seed));
-const renderer = createRenderer(canvas);
+    this.lastTime = performance.now();
+    this.accumulator = 0;
+    this.timestep = CONFIG.TIMESTEP;
 
-function readBest() {
-  try {
-    return Number.parseInt(window.localStorage.getItem(BEST_KEY) ?? '0', 10) || 0;
-  } catch {
-    return 0;
-  }
-}
+    this.initUI();
+    setupShotStaging(this);
 
-function saveBest(value) {
-  try {
-    window.localStorage.setItem(BEST_KEY, String(value));
-  } catch {
-    // Storage can be off (private windows): the best score then lasts this visit only.
-  }
-}
-
-function runShot(name) {
-  const scene = stageShot(name, world);
-  let painted = 0;
-  function paint() {
-    renderer.draw(world.state, scene.screen, scene.best);
-    painted += 1;
-    if (painted < 2) requestAnimationFrame(paint);
-    else window.__shotReady = true;
-  }
-  requestAnimationFrame(paint);
-}
-
-function runGame() {
-  const input = createInput(canvas);
-  let screen = SCREEN_TITLE;
-  let best = readBest();
-  let accumulator = 0;
-  let last = performance.now();
-
-  // Screen readers (and anyone watching the page's text) hear the screen changes and each hit.
-  function announce(message) {
-    status.textContent = message;
+    // Start loop
+    requestAnimationFrame((t) => this.loop(t));
   }
 
-  function startGame() {
-    world.reset();
-    accumulator = 0;
-    screen = SCREEN_PLAY;
-    announce(`Playing. ${LIVES} lives.`);
-  }
+  initUI() {
+    const btnNew = document.getElementById('btn-new-game');
+    const btnCont = document.getElementById('btn-continue');
+    const btnResume = document.getElementById('btn-resume');
+    const btnQuit = document.getElementById('btn-quit');
+    const btnRetry = document.getElementById('btn-retry');
+    const btnGoTitle = document.getElementById('btn-go-title');
 
-  function endGame() {
-    screen = SCREEN_OVER;
-    if (world.state.score > best) {
-      best = world.state.score;
-      saveBest(best);
+    if (btnNew) {
+      btnNew.addEventListener('click', () => this.startNewGame());
     }
-    announce(`Game over. Score ${world.state.score}. Best ${best}.`);
-  }
-
-  function handleActions() {
-    const actions = input.takeActions();
-    if (actions & ACTION_CONFIRM && (screen === SCREEN_TITLE || screen === SCREEN_OVER)) startGame();
-    else if (actions & ACTION_PAUSE && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    } else if (actions & (ACTION_PAUSE | ACTION_CONFIRM) && screen === SCREEN_PAUSED) {
-      screen = SCREEN_PLAY;
-      announce('Playing.');
+    if (btnCont) {
+      btnCont.addEventListener('click', () => this.continueGame());
     }
-  }
-
-  function step() {
-    if (screen === SCREEN_TITLE) {
-      world.step(STEP, 0, true);
-      return;
+    if (btnResume) {
+      btnResume.addEventListener('click', () => this.resumeGame());
     }
-    const events = world.step(STEP, input.direction(), false);
-    if (events & EVENT_OVER) endGame();
-    else if (events & EVENT_HIT) announce(world.state.lives === 1 ? 'Hit. 1 life left.' : `Hit. ${world.state.lives} lives left.`);
-  }
+    if (btnQuit) {
+      btnQuit.addEventListener('click', () => this.goToTitle());
+    }
+    if (btnRetry) {
+      btnRetry.addEventListener('click', () => this.startNewGame());
+    }
+    if (btnGoTitle) {
+      btnGoTitle.addEventListener('click', () => this.goToTitle());
+    }
 
-  function frame(now) {
-    requestAnimationFrame(frame);
-    accumulator += Math.min((now - last) / 1000, MAX_FRAME);
-    last = now;
-    handleActions();
-    if (screen === SCREEN_TITLE || screen === SCREEN_PLAY) {
-      while (accumulator >= STEP && (screen === SCREEN_TITLE || screen === SCREEN_PLAY)) {
-        step();
-        accumulator -= STEP;
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Escape') {
+        if (this.state === 'PLAYING') {
+          this.pauseGame();
+        } else if (this.state === 'PAUSED') {
+          this.resumeGame();
+        }
       }
-    } else {
-      accumulator = 0;
-    }
-    renderer.draw(world.state, screen, best);
+    });
   }
 
-  // Leaving the tab pauses a running game rather than letting blocks fall unseen.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    }
-  });
+  startNewGame(seed = 12345) {
+    this.world = new World(seed);
+    this.player = new Player(0, 0);
+    this.player.money = 500;
+    this.player.health = 100;
+    this.player.wanted = 0;
 
-  announce('Block Dodger. Press Space or click to start.');
-  requestAnimationFrame(frame);
+    this.saveData = {
+      money: 500,
+      health: 100,
+      missionIndex: 0,
+      completedMissions: [],
+      x: 0,
+      y: 0
+    };
+    SaveSystem.save(this.saveData);
+
+    this.hideAllScreens();
+    this.hud.show();
+    this.state = 'PLAYING';
+  }
+
+  continueGame() {
+    const saved = SaveSystem.load();
+    const seed = 12345;
+    this.world = new World(seed);
+    this.player = new Player(saved ? saved.x || 0 : 0, saved ? saved.y || 0 : 0);
+    if (saved) {
+      this.player.money = saved.money ?? 500;
+      this.player.health = saved.health ?? 100;
+      this.saveData = saved;
+    }
+
+    this.hideAllScreens();
+    this.hud.show();
+    this.state = 'PLAYING';
+  }
+
+  pauseGame() {
+    this.state = 'PAUSED';
+    document.getElementById('pause-screen').classList.remove('hidden');
+    this.hud.hide();
+  }
+
+  resumeGame() {
+    this.state = 'PLAYING';
+    document.getElementById('pause-screen').classList.add('hidden');
+    this.hud.show();
+  }
+
+  goToTitle() {
+    this.state = 'TITLE';
+    this.hideAllScreens();
+    document.getElementById('title-screen').classList.remove('hidden');
+    this.hud.hide();
+  }
+
+  gameOver(reason = 'BUSTED') {
+    this.state = 'GAMEOVER';
+    this.hud.hide();
+    const screen = document.getElementById('gameover-screen');
+    const title = document.getElementById('gameover-title');
+    if (title) title.textContent = reason;
+    screen.classList.remove('hidden');
+  }
+
+  hideAllScreens() {
+    document.getElementById('title-screen').classList.add('hidden');
+    document.getElementById('pause-screen').classList.add('hidden');
+    document.getElementById('gameover-screen').classList.add('hidden');
+  }
+
+  stageShot(shot, seed) {
+    if (shot === 'start') {
+      // Deterministic setup for title/cover shot
+      this.world = new World(seed);
+      this.player = new Player(0, 0);
+      this.state = 'TITLE';
+      document.getElementById('title-screen').classList.remove('hidden');
+      this.hud.hide();
+
+      // Render twice to ensure canvas is fully painted
+      this.renderer.render(this.world, this.player, this.input);
+      this.renderer.render(this.world, this.player, this.input);
+
+      window.__shotReady = true;
+    }
+  }
+
+  loop(currentTime) {
+    const dt = (currentTime - this.lastTime) / 1000;
+    this.lastTime = currentTime;
+
+    if (dt < 0.1) {
+      this.accumulator += dt;
+      while (this.accumulator >= this.timestep) {
+        this.update(this.timestep);
+        this.accumulator -= this.timestep;
+      }
+    }
+
+    this.render();
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  update(dt) {
+    if (this.state === 'PLAYING') {
+      if (this.player && this.world) {
+        this.player.update(dt, this.input, this.world);
+        this.renderer.updateCamera(this.player.x, this.player.y, dt);
+        this.hud.update(this.player, this.world);
+      }
+    }
+  }
+
+  render() {
+    if (!this.world || !this.player) {
+      // Fallback world/player for rendering title scene background
+      if (!this.world) {
+        this.world = new World(12345);
+        this.player = new Player(0, 0);
+      }
+    }
+    this.renderer.render(this.world, this.player, this.input);
+  }
 }
 
-if (shot) runShot(shot);
-else runGame();
+window.addEventListener('DOMContentLoaded', () => {
+  window.game = new Game();
+});

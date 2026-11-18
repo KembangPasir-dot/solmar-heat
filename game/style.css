@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0c14;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: #f3f4f6;
+}
+
+#game-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Screens */
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 30%, rgba(26, 15, 30, 0.92) 0%, rgba(10, 12, 20, 0.98) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.screen-content {
+  text-align: center;
+  max-width: 600px;
+  width: 100%;
+  background: rgba(18, 20, 32, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.1);
+  border-radius: 12px;
+  padding: 40px;
+  backdrop-filter: blur(10px);
+}
+
+.game-title {
+  font-family: 'Cinzel', serif;
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 10px;
+  text-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+}
+
+.game-subtitle {
+  font-size: 1.1rem;
+  color: #9ca3af;
+  letter-spacing: 0.05em;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+}
+
+.screen-heading {
+  font-family: 'Cinzel', serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #fbbf24;
+  margin-bottom: 20px;
+  letter-spacing: 0.1em;
+}
+
+.screen-heading.red {
+  color: #ef4444;
+}
+
+#gameover-desc {
+  color: #9ca3af;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.menu-options {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.btn {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #e2e8f0;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 14px 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.05em;
+}
+
+.btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #f59e0b;
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #fbbf24;
+  color: #0f172a;
+}
+
+.btn.primary:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #0f172a;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5);
+}
+
+.controls-guide {
+  text-align: left;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+.controls-guide h3 {
+  font-size: 0.9rem;
+  color: #f59e0b;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.controls-guide p {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.controls-guide span {
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.credits {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 20px;
+  letter-spacing: 0.05em;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+#hud-top-left {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+#hud-top-right {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.hud-box {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 12px 18px;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.hud-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.hud-value {
+  font-family: 'Cinzel', serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #34d399;
+  letter-spacing: 0.05em;
+}
+
+.bar-container {
+  width: 140px;
+  height: 10px;
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+  transition: width 0.2s ease;
+}
+
+.stars {
+  font-size: 1.2rem;
+  color: #fbbf24;
+  letter-spacing: 0.15em;
+}
+
+#minimap-container {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  position: relative;
+}
+
+#minimap-canvas {
+  display: block;
+}
+
+.minimap-label {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 0.65rem;
+  color: #94a3b8;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 2px 0;
+}
+
+#hud-bottom {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+#objective-box {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 12px 24px;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  max-width: 600px;
+  text-align: center;
+}
+
+.obj-tag {
+  background: #f59e0b;
+  color: #0f172a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.1em;
+}
+
+#objective-text {
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
