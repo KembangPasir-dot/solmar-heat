@@ -11,6 +11,8 @@ import { setupShotStaging } from './shots.js';
 import { TrafficManager } from './traffic.js';
 import { PedestrianManager } from './pedestrian.js';
 import { Vehicle } from './vehicle.js';
+import { PoliceManager } from './police.js';
+import { CombatManager } from './combat.js';
 
 class Game {
   constructor() {
@@ -23,6 +25,8 @@ class Game {
     this.player = null;
     this.trafficManager = null;
     this.pedestrianManager = null;
+    this.policeManager = null;
+    this.combatManager = null;
     this.state = 'TITLE'; // TITLE, PLAYING, PAUSED, GAMEOVER
     this.saveData = SaveSystem.load() || SaveSystem.getDefaults();
 
@@ -59,6 +63,9 @@ class Game {
           this.resumeGame();
         }
       }
+      if (e.code === 'Enter' && this.state === 'GAMEOVER') {
+        this.goToTitle();
+      }
     });
   }
 
@@ -67,6 +74,9 @@ class Game {
     this.player = new Player(0, 0);
     this.trafficManager = new TrafficManager(this.world, seed);
     this.pedestrianManager = new PedestrianManager(this.world, seed);
+    this.policeManager = new PoliceManager(this.world, seed);
+    this.combatManager = new CombatManager(this.world);
+
     this.player.money = 500;
     this.player.health = 100;
     this.player.wanted = 0;
@@ -93,6 +103,9 @@ class Game {
     this.player = new Player(saved ? saved.x || 0 : 0, saved ? saved.y || 0 : 0);
     this.trafficManager = new TrafficManager(this.world, seed);
     this.pedestrianManager = new PedestrianManager(this.world, seed);
+    this.policeManager = new PoliceManager(this.world, seed);
+    this.combatManager = new CombatManager(this.world);
+
     if (saved) {
       this.player.money = saved.money ?? 500;
       this.player.health = saved.health ?? 100;
@@ -144,12 +157,15 @@ class Game {
       this.player = new Player(0, 0);
       this.trafficManager = new TrafficManager(this.world, seed);
       this.pedestrianManager = new PedestrianManager(this.world, seed);
+      this.policeManager = new PoliceManager(this.world, seed);
+      this.combatManager = new CombatManager(this.world);
+
       this.state = 'TITLE';
       document.getElementById('title-screen').classList.remove('hidden');
       this.hud.hide();
 
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
 
       window.__shotReady = true;
     } else if (shot === 'drive') {
@@ -157,6 +173,8 @@ class Game {
       this.player = new Player(0, 0);
       this.trafficManager = new TrafficManager(this.world, seed);
       this.pedestrianManager = new PedestrianManager(this.world, seed);
+      this.policeManager = new PoliceManager(this.world, seed);
+      this.combatManager = new CombatManager(this.world);
 
       // Spawn player driving a red car on a safe vertical straight road segment (380, 170) facing down (Math.PI/2)
       const car = new Vehicle(380, 170, Math.PI / 2, '#ef4444');
@@ -180,9 +198,56 @@ class Game {
         this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60);
       }
 
-      this.hud.update(this.player, this.world);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
-      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
+      this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+
+      window.__shotReady = true;
+    } else if (shot === 'chase') {
+      this.world = new World(seed);
+      this.player = new Player(0, 0);
+      this.trafficManager = new TrafficManager(this.world, seed);
+      this.pedestrianManager = new PedestrianManager(this.world, seed);
+      this.policeManager = new PoliceManager(this.world, seed);
+      this.combatManager = new CombatManager(this.world);
+
+      this.player.wanted = 3;
+      const car = new Vehicle(380, 200, Math.PI / 2, '#ef4444');
+      car.speed = 320;
+      this.trafficManager.cars.push(car);
+      this.player.enterCar(car, this.hud);
+
+      // Spawn police cars chasing (two behind, one ahead)
+      const p1 = new Vehicle(380, 320, Math.PI / 2, '#1e3a8a');
+      p1.speed = 350;
+      p1.driver = 'police';
+      const p2 = new Vehicle(340, 380, Math.PI / 2, '#1e3a8a');
+      p2.speed = 340;
+      p2.driver = 'police';
+      const p3 = new Vehicle(380, 50, Math.PI / 2, '#1e3a8a');
+      p3.speed = 280;
+      p3.driver = 'police';
+      this.policeManager.policeCars.push(p1, p2, p3);
+
+      this.state = 'PLAYING';
+      this.hideAllScreens();
+      this.hud.show();
+
+      // Simulate a few frames
+      const control = { forward: true, reverse: false, left: false, right: false, handbrake: false };
+      for (let i = 0; i < 40; i++) {
+        this.trafficManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
+        this.policeManager.update(1 / 60, this.player, this.trafficManager);
+        car.update(1 / 60, control, this.world, this.trafficManager.cars.concat(this.policeManager.policeCars));
+        this.player.x = car.x;
+        this.player.y = car.y;
+        this.player.angle = car.angle;
+        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60);
+      }
+
+      this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
 
       window.__shotReady = true;
     }
@@ -207,12 +272,41 @@ class Game {
   update(dt) {
     if (this.state === 'PLAYING') {
       if (this.player && this.world && this.trafficManager && this.pedestrianManager) {
+        // Mouse world coordinates
+        this.input.mouse.worldX = this.input.mouse.x - this.canvas.width / 2 + this.renderer.camera.x;
+        this.input.mouse.worldY = this.input.mouse.y - this.canvas.height / 2 + this.renderer.camera.y;
+
         this.trafficManager.update(dt, this.player.x, this.player.y, this.trafficManager.cars);
         this.pedestrianManager.update(dt, this.player.x, this.player.y, this.trafficManager.cars);
+
+        if (this.policeManager) {
+          const bustResult = this.policeManager.update(dt, this.player, this.trafficManager);
+          if (bustResult === 'BUSTED') {
+            this.gameOver('BUSTED');
+            return;
+          }
+        }
+
+        if (this.combatManager) {
+          this.combatManager.update(dt, this.input, this.player, this.trafficManager, this.pedestrianManager, this.policeManager);
+        }
+
         this.player.update(dt, this.input, this.world, this.trafficManager, this.hud);
 
+        // Check health damage / wrecked car
+        if (this.player.inCar && this.player.currentCar) {
+          if (this.player.currentCar.wrecked) {
+            this.player.health = 0;
+          }
+        }
+
+        if (this.player.health <= 0) {
+          this.gameOver('WASTED');
+          return;
+        }
+
         this.renderer.updateCamera(this.player.x, this.player.y, dt);
-        this.hud.update(this.player, this.world);
+        this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
       }
     }
   }
@@ -224,9 +318,11 @@ class Game {
         this.player = new Player(0, 0);
         this.trafficManager = new TrafficManager(this.world, 12345);
         this.pedestrianManager = new PedestrianManager(this.world, 12345);
+        this.policeManager = new PoliceManager(this.world, 12345);
+        this.combatManager = new CombatManager(this.world);
       }
     }
-    this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager);
+    this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
   }
 }
 

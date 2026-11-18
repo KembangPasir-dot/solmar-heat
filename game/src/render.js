@@ -25,7 +25,7 @@ export class Renderer {
     this.camera.y += (targetY - this.camera.y) * (1 - Math.pow(0.001, dt));
   }
 
-  render(world, player, input, trafficManager, pedestrianManager) {
+  render(world, player, input, trafficManager, pedestrianManager, policeManager, combatManager) {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
@@ -52,15 +52,53 @@ export class Renderer {
       }
     }
 
+    if (policeManager && policeManager.policeCars) {
+      for (const pCar of policeManager.policeCars) {
+        this.renderVehicle(ctx, pCar);
+      }
+    }
+
     if (pedestrianManager && pedestrianManager.pedestrians) {
       for (const p of pedestrianManager.pedestrians) {
         this.renderPedestrian(ctx, p);
       }
     }
 
+    if (policeManager && policeManager.officers) {
+      for (const off of policeManager.officers) {
+        this.renderPoliceOfficer(ctx, off);
+      }
+    }
+
     if (!player.inCar) {
       this.renderPlayer(ctx, player, input);
     }
+
+    if (combatManager) {
+      combatManager.render(ctx, player);
+    }
+
+    ctx.restore();
+  }
+
+  renderPoliceOfficer(ctx, off) {
+    ctx.save();
+    ctx.translate(off.x, off.y);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.arc(1, 2, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1e3a8a'; // police blue uniform
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#60a5fa';
+    ctx.beginPath();
+    ctx.arc(3, 0, 5, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.restore();
   }

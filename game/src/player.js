@@ -109,6 +109,7 @@ export class Player {
     this.currentCar = car;
     car.driver = 'player';
     car.stolen = true;
+    this.wanted = Math.min(5, (this.wanted || 0) + 1);
     if (hud && typeof hud.showStolen === 'function') {
       hud.showStolen();
     }

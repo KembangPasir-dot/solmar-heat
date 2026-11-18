@@ -20,6 +20,11 @@ export class HUD {
     this.speedDisplay.id = 'speed-display';
     this.speedDisplay.style.cssText = 'position:absolute; bottom:30px; right:30px; color:#ffffff; font-family:monospace; font-size:24px; font-weight:bold; background:rgba(0,0,0,0.6); padding:8px 16px; border-radius:6px; border:1px solid rgba(255,255,255,0.2);';
     document.body.appendChild(this.speedDisplay);
+
+    this.ammoDisplay = document.createElement('div');
+    this.ammoDisplay.id = 'ammo-display';
+    this.ammoDisplay.style.cssText = 'position:absolute; bottom:30px; left:30px; color:#fbbf24; font-family:monospace; font-size:20px; font-weight:bold; background:rgba(0,0,0,0.6); padding:8px 16px; border-radius:6px; border:1px solid rgba(245,158,11,0.3); display:none;';
+    document.body.appendChild(this.ammoDisplay);
   }
 
   show() {
@@ -42,7 +47,7 @@ export class HUD {
     }
   }
 
-  update(player, world, objective = 'Explore Solmar Bay. Find a car and press E to steal.') {
+  update(player, world, combatManager, policeManager, objective = 'Explore Solmar Bay. Find a car and press E to steal.') {
     if (!this.healthBar || !this.moneyDisplay || !this.wantedStars) return;
 
     const healthPct = Math.max(0, Math.min(100, player.health));
@@ -65,17 +70,24 @@ export class HUD {
     }
 
     if (player.inCar && player.currentCar && this.speedDisplay) {
-      const speedKmh = Math.round(Math.abs(player.currentCar.speed) * 0.8);
-      this.speedDisplay.textContent = `${speedKmh} MPH`;
+      const speedMph = Math.min(120, Math.round(Math.abs(player.currentCar.speed) * 0.25));
+      this.speedDisplay.textContent = `${speedMph} MPH`;
       this.speedDisplay.style.display = 'block';
     } else if (this.speedDisplay) {
       this.speedDisplay.style.display = 'none';
     }
 
-    this.renderMinimap(player, world);
+    if (!player.inCar && combatManager && this.ammoDisplay) {
+      this.ammoDisplay.textContent = `AMMO: ${combatManager.ammo} / ${combatManager.maxAmmo}`;
+      this.ammoDisplay.style.display = 'block';
+    } else if (this.ammoDisplay) {
+      this.ammoDisplay.style.display = 'none';
+    }
+
+    this.renderMinimap(player, world, policeManager);
   }
 
-  renderMinimap(player, world) {
+  renderMinimap(player, world, policeManager) {
     if (!this.minimapCtx || !this.minimapCanvas) return;
     const ctx = this.minimapCtx;
     const w = this.minimapCanvas.width;
@@ -102,6 +114,10 @@ export class HUD {
           ctx.fillRect(bx, by, Math.max(1, bw), Math.max(1, bh));
         }
       }
+    }
+
+    if (policeManager && typeof policeManager.renderMinimapBlips === 'function') {
+      policeManager.renderMinimapBlips(ctx, player, scale);
     }
 
     ctx.fillStyle = '#fbbf24';
