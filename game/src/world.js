@@ -46,7 +46,7 @@ export class World {
 
         // Building rooftop boxes / HVAC units
         const roofBoxes = [];
-        const numRoofBoxes = this.random.rangeInt(1, 4);
+        const numRoofBoxes = this.random.int(1, 4);
         for (let i = 0; i < numRoofBoxes; i++) {
           roofBoxes.push({
             rx: bx + 20 + this.random.range(0, bw - 40),
@@ -58,7 +58,7 @@ export class World {
         }
 
         // Window pattern type (0: grid, 1: vertical strips, 2: sparse)
-        const windowStyle = this.random.rangeInt(0, 3);
+        const windowStyle = this.random.int(0, 3);
 
         this.buildings.push({
           x: bx,
