@@ -78,6 +78,42 @@ export class Renderer {
       combatManager.render(ctx, player);
     }
 
+    if (window.game && window.game.missionManager) {
+      const wp = window.game.missionManager.getCurrentWaypoint();
+      if (wp) {
+        this.renderWaypoint(ctx, wp);
+      }
+    }
+
+    ctx.restore();
+  }
+
+  renderWaypoint(ctx, wp) {
+    ctx.save();
+    ctx.translate(wp.x, wp.y);
+
+    // Glowing gold marker ring
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(251, 191, 36, 0.3)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inner diamond
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.moveTo(0, -14);
+    ctx.lineTo(14, 0);
+    ctx.lineTo(0, 14);
+    ctx.lineTo(-14, 0);
+    ctx.closePath();
+    ctx.fill();
+
     ctx.restore();
   }
 

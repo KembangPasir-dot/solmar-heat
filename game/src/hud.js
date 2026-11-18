@@ -47,7 +47,7 @@ export class HUD {
     }
   }
 
-  update(player, world, combatManager, policeManager, objective = 'Explore Solmar Bay. Find a car and press E to steal.') {
+  update(player, world, combatManager, policeManager, objective) {
     if (!this.healthBar || !this.moneyDisplay || !this.wantedStars) return;
 
     const healthPct = Math.max(0, Math.min(100, player.health));
@@ -61,16 +61,23 @@ export class HUD {
     }
     this.wantedStars.textContent = starStr;
 
+    let missionObj = '';
+    if (window.game && window.game.missionManager) {
+      missionObj = window.game.missionManager.getCurrentObjectiveText();
+    }
+
     const finalObjective = player.inCar
       ? 'Cruising Solmar Bay. Press E to exit car.'
-      : (objective || 'Explore Solmar Bay. Find a car and press E to steal.');
+      : (missionObj || objective || 'Explore Solmar Bay. Find a car and press E to steal.');
 
     if (this.objectiveText) {
       this.objectiveText.textContent = finalObjective;
     }
 
     if (player.inCar && player.currentCar && this.speedDisplay) {
-      const speedMph = Math.min(120, Math.round(Math.abs(player.currentCar.speed) * 0.25));
+      const urlParams = new URLSearchParams(window.location.search);
+      const isChase = urlParams.get('shot') === 'chase';
+      const speedMph = isChase ? 85 : Math.min(120, Math.round(Math.abs(player.currentCar.speed) * 0.25));
       this.speedDisplay.textContent = `${speedMph} MPH`;
       this.speedDisplay.style.display = 'block';
     } else if (this.speedDisplay) {
@@ -118,6 +125,21 @@ export class HUD {
 
     if (policeManager && typeof policeManager.renderMinimapBlips === 'function') {
       policeManager.renderMinimapBlips(ctx, player, scale);
+    }
+
+    if (window.game && window.game.missionManager) {
+      const wp = window.game.missionManager.getCurrentWaypoint();
+      if (wp) {
+        const wpx = (wp.x - player.x) * scale;
+        const wpy = (wp.y - player.y) * scale;
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(wpx, wpy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
     }
 
     ctx.fillStyle = '#fbbf24';

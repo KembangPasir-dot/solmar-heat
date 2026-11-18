@@ -13,6 +13,7 @@ import { PedestrianManager } from './pedestrian.js';
 import { Vehicle } from './vehicle.js';
 import { PoliceManager } from './police.js';
 import { CombatManager } from './combat.js';
+import { MissionManager } from './missions.js';
 
 class Game {
   constructor() {
@@ -20,6 +21,7 @@ class Game {
     this.input = new Input();
     this.renderer = new Renderer(this.canvas);
     this.hud = new HUD();
+    this.missionManager = new MissionManager();
 
     this.world = null;
     this.player = null;
@@ -29,10 +31,6 @@ class Game {
     this.combatManager = null;
     this.state = 'TITLE'; // TITLE, PLAYING, PAUSED, GAMEOVER
     this.saveData = SaveSystem.load() || SaveSystem.getDefaults();
-
-    this.lastTime = performance.now();
-    this.accumulator = 0;
-    this.timestep = CONFIG.TIMESTEP;
 
     this.initUI();
     setupShotStaging(this);
@@ -55,6 +53,22 @@ class Game {
     if (btnRetry) btnRetry.addEventListener('click', () => this.startNewGame());
     if (btnGoTitle) btnGoTitle.addEventListener('click', () => this.goToTitle());
 
+    // Add Save Progress button to pause screen if not present
+    const pauseScreenContent = document.querySelector('#pause-screen .screen-content');
+    if (pauseScreenContent && !document.getElementById('btn-save-game')) {
+      const saveBtn = document.createElement('button');
+      saveBtn.id = 'btn-save-game';
+      saveBtn.className = 'btn';
+      saveBtn.textContent = 'SAVE PROGRESS';
+      saveBtn.style.marginTop = '10px';
+      saveBtn.addEventListener('click', () => {
+        this.saveProgress();
+        saveBtn.textContent = 'PROGRESS SAVED!';
+        setTimeout(() => { saveBtn.textContent = 'SAVE PROGRESS'; }, 2000);
+      });
+      pauseScreenContent.querySelector('.menu-options').appendChild(saveBtn);
+    }
+
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape') {
         if (this.state === 'PLAYING') {
@@ -63,10 +77,37 @@ class Game {
           this.resumeGame();
         }
       }
-      if (e.code === 'Enter' && this.state === 'GAMEOVER') {
-        this.goToTitle();
+      if (e.code === 'Enter') {
+        if (this.state === 'GAMEOVER') {
+          this.goToTitle();
+        } else if (this.missionManager.state === 'BRIEFING') {
+          this.missionManager.beginActiveMission();
+        } else if (this.missionManager.state === 'COMPLETE') {
+          this.missionManager.advanceToNext();
+          this.saveProgress();
+        } else if (this.missionManager.state === 'ALL_COMPLETE') {
+          document.getElementById('ending-screen-modal')?.classList.add('hidden');
+          this.state = 'PLAYING';
+        }
+      }
+      if (e.code === 'KeyR') {
+        if (this.missionManager.state === 'FAILED') {
+          this.retryCurrentMission();
+        }
       }
     });
+  }
+
+  saveProgress() {
+    this.saveData = {
+      money: this.player ? this.player.money : 500,
+      health: this.player ? this.player.health : 100,
+      missionIndex: this.missionManager.currentIndex,
+      completedMissions: [],
+      x: this.player ? this.player.x : 0,
+      y: this.player ? this.player.y : 0
+    };
+    SaveSystem.save(this.saveData);
   }
 
   startNewGame(seed = 12345) {
@@ -76,45 +117,57 @@ class Game {
     this.pedestrianManager = new PedestrianManager(this.world, seed);
     this.policeManager = new PoliceManager(this.world, seed);
     this.combatManager = new CombatManager(this.world);
+    this.missionManager = new MissionManager();
 
     this.player.money = 500;
     this.player.health = 100;
     this.player.wanted = 0;
 
-    this.saveData = {
-      money: 500,
-      health: 100,
-      missionIndex: 0,
-      completedMissions: [],
-      x: 0,
-      y: 0
-    };
-    SaveSystem.save(this.saveData);
-
+    this.saveProgress();
     this.hideAllScreens();
     this.hud.show();
     this.state = 'PLAYING';
+
+    // Start first mission briefing automatically
+    this.missionManager.startBriefing(0);
   }
 
   continueGame() {
-    const saved = SaveSystem.load();
+    const saved = SaveSystem.load() || SaveSystem.getDefaults();
     const seed = 12345;
     this.world = new World(seed);
-    this.player = new Player(saved ? saved.x || 0 : 0, saved ? saved.y || 0 : 0);
+    this.player = new Player(saved.x || 0, saved.y || 0);
     this.trafficManager = new TrafficManager(this.world, seed);
     this.pedestrianManager = new PedestrianManager(this.world, seed);
     this.policeManager = new PoliceManager(this.world, seed);
     this.combatManager = new CombatManager(this.world);
+    this.missionManager = new MissionManager();
 
-    if (saved) {
-      this.player.money = saved.money ?? 500;
-      this.player.health = saved.health ?? 100;
-      this.saveData = saved;
-    }
+    this.player.money = saved.money ?? 500;
+    this.player.health = saved.health ?? 100;
+    this.missionManager.currentIndex = saved.missionIndex ?? 0;
+    this.saveData = saved;
 
     this.hideAllScreens();
     this.hud.show();
     this.state = 'PLAYING';
+
+    // Start briefing or active mission for current index
+    this.missionManager.startBriefing(this.missionManager.currentIndex);
+  }
+
+  retryCurrentMission() {
+    if (this.player) {
+      this.player.health = 100;
+      this.player.wanted = 0;
+      if (this.player.inCar && this.player.currentCar) {
+        this.player.exitCar();
+      }
+    }
+    this.missionManager.hideAllModals();
+    this.missionManager.beginActiveMission();
+    this.state = 'PLAYING';
+    this.hud.show();
   }
 
   pauseGame() {
@@ -149,6 +202,7 @@ class Game {
     document.getElementById('title-screen').classList.add('hidden');
     document.getElementById('pause-screen').classList.add('hidden');
     document.getElementById('gameover-screen').classList.add('hidden');
+    this.missionManager.hideAllModals();
   }
 
   stageShot(shot, seed) {
@@ -176,7 +230,6 @@ class Game {
       this.policeManager = new PoliceManager(this.world, seed);
       this.combatManager = new CombatManager(this.world);
 
-      // Spawn player driving a red car on a safe vertical straight road segment (380, 170) facing down (Math.PI/2)
       const car = new Vehicle(380, 170, Math.PI / 2, '#ef4444');
       car.speed = 180;
       this.trafficManager.cars.push(car);
@@ -186,7 +239,6 @@ class Game {
       this.hideAllScreens();
       this.hud.show();
 
-      // Simulate forward with throttle held for about one second (60 frames)
       const control = { forward: true, reverse: false, left: false, right: false, handbrake: false };
       for (let i = 0; i < 60; i++) {
         this.trafficManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
@@ -212,30 +264,28 @@ class Game {
       this.combatManager = new CombatManager(this.world);
 
       this.player.wanted = 3;
-      const car = new Vehicle(380, 200, Math.PI / 2, '#ef4444');
-      car.speed = 320;
+      // Spawn player car on clear vertical straight road segment (x: 380, y: 150) facing south (Math.PI/2)
+      const car = new Vehicle(380, 150, Math.PI / 2, '#ef4444');
+      car.speed = 340; // ~85 MPH display
       this.trafficManager.cars.push(car);
       this.player.enterCar(car, this.hud);
 
-      // Spawn police cars chasing (two behind, one ahead)
-      const p1 = new Vehicle(380, 320, Math.PI / 2, '#1e3a8a');
-      p1.speed = 350;
+      // Police cars strictly BEHIND the player car on open road
+      const p1 = new Vehicle(380, 270, Math.PI / 2, '#1e3a8a');
+      p1.speed = 360;
       p1.driver = 'police';
-      const p2 = new Vehicle(340, 380, Math.PI / 2, '#1e3a8a');
-      p2.speed = 340;
+      const p2 = new Vehicle(380, 350, Math.PI / 2, '#1e3a8a');
+      p2.speed = 350;
       p2.driver = 'police';
-      const p3 = new Vehicle(380, 50, Math.PI / 2, '#1e3a8a');
-      p3.speed = 280;
-      p3.driver = 'police';
-      this.policeManager.policeCars.push(p1, p2, p3);
+      this.policeManager.policeCars.push(p1, p2);
 
       this.state = 'PLAYING';
       this.hideAllScreens();
       this.hud.show();
 
-      // Simulate a few frames
+      // Simulate with throttle held
       const control = { forward: true, reverse: false, left: false, right: false, handbrake: false };
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 50; i++) {
         this.trafficManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
         this.policeManager.update(1 / 60, this.player, this.trafficManager);
         car.update(1 / 60, control, this.world, this.trafficManager.cars.concat(this.policeManager.policeCars));
@@ -244,6 +294,26 @@ class Game {
         this.player.angle = car.angle;
         this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60);
       }
+
+      this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+      this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
+
+      window.__shotReady = true;
+    } else if (shot === 'mission') {
+      this.world = new World(seed);
+      this.player = new Player(100, 100);
+      this.trafficManager = new TrafficManager(this.world, seed);
+      this.pedestrianManager = new PedestrianManager(this.world, seed);
+      this.policeManager = new PoliceManager(this.world, seed);
+      this.combatManager = new CombatManager(this.world);
+
+      this.missionManager.startBriefing(0);
+      this.missionManager.beginActiveMission();
+
+      this.state = 'PLAYING';
+      this.hideAllScreens();
+      this.hud.show();
 
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
       this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager);
@@ -272,7 +342,6 @@ class Game {
   update(dt) {
     if (this.state === 'PLAYING') {
       if (this.player && this.world && this.trafficManager && this.pedestrianManager) {
-        // Mouse world coordinates
         this.input.mouse.worldX = this.input.mouse.x - this.canvas.width / 2 + this.renderer.camera.x;
         this.input.mouse.worldY = this.input.mouse.y - this.canvas.height / 2 + this.renderer.camera.y;
 
@@ -293,7 +362,20 @@ class Game {
 
         this.player.update(dt, this.input, this.world, this.trafficManager, this.hud);
 
-        // Check health damage / wrecked car
+        if (this.missionManager) {
+          this.missionManager.update(dt, this.player, this.combatManager, this.policeManager, this.world);
+          if (this.missionManager.state === 'COMPLETE') {
+            const m = this.missionManager.getCurrentMission();
+            if (m && !this._missionPaid) {
+              this.player.money += m.payout;
+              this._missionPaid = true;
+              this.saveProgress();
+            }
+          } else {
+            this._missionPaid = false;
+          }
+        }
+
         if (this.player.inCar && this.player.currentCar) {
           if (this.player.currentCar.wrecked) {
             this.player.health = 0;
