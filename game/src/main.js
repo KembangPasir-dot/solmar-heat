@@ -103,17 +103,24 @@ class Game {
         if (this.missionManager.state === 'FAILED') {
           clickSound();
           this.retryCurrentMission();
+        } else {
+          clickSound();
+          if (this.audioManager) {
+            this.audioManager.cycleStation();
+          }
         }
       }
     });
   }
 
   saveProgress() {
+    const respectCount = Math.min(7, Math.max(0, this.missionManager ? this.missionManager.currentIndex : 0));
     this.saveData = {
       money: this.player ? this.player.money : 500,
       health: this.player ? this.player.health : 100,
       missionIndex: this.missionManager.currentIndex,
-      completedMissions: [],
+      completedMissions: this.saveData.completedMissions || [],
+      respect: respectCount,
       x: this.player ? this.player.x : 0,
       y: this.player ? this.player.y : 0
     };

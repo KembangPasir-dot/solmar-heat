@@ -14,6 +14,10 @@ export class AudioManager {
     this.padGain = null;
     this.padChordIndex = 0;
 
+    this.stations = ['SOLMAR FM', 'NEON NIGHTS', 'PALM RADIO'];
+    this.stationIndex = 0;
+    this.musicInterval = null;
+
     this.setupListeners();
   }
 
@@ -27,7 +31,7 @@ export class AudioManager {
         this.ctx.resume();
       }
       this.initialized = true;
-      this.startAmbientPad();
+      this.startStationMusic();
     } catch (e) {
       console.warn('AudioContext not available:', e);
     }
@@ -217,43 +221,140 @@ export class AudioManager {
     } catch (e) {}
   }
 
-  startAmbientPad() {
+  stopMusic() {
+    try {
+      if (this.musicInterval) {
+        clearInterval(this.musicInterval);
+        this.musicInterval = null;
+      }
+      if (this.padOscs) {
+        this.padOscs.forEach(o => { try { o.stop(); } catch(e){} });
+        this.padOscs = [];
+      }
+    } catch (e) {}
+  }
+
+  cycleStation() {
+    this.stationIndex = (this.stationIndex + 1) % this.stations.length;
+    this.stopMusic();
+    if (this.initialized && this.ctx && !this.muted) {
+      this.startStationMusic();
+    }
+    if (window.game && window.game.hud) {
+      window.game.hud.updateRadioStation(this.getCurrentStationName());
+    }
+  }
+
+  getCurrentStationName() {
+    return this.stations[this.stationIndex] || 'SOLMAR FM';
+  }
+
+  startStationMusic() {
     try {
       if (!this.ctx) return;
-      const chords = [
-        [130.81, 164.81, 196.00],
-        [110.00, 138.59, 164.81],
-        [98.00, 123.47, 146.83],
-        [116.54, 146.83, 174.61]
-      ];
-      this.padGain = this.ctx.createGain();
-      this.padGain.gain.value = 0.08;
+      const station = this.getCurrentStationName();
 
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 350;
+      if (station === 'SOLMAR FM') {
+        const chords = [
+          [130.81, 164.81, 196.00],
+          [110.00, 138.59, 164.81],
+          [98.00, 123.47, 146.83],
+          [116.54, 146.83, 174.61]
+        ];
+        this.padGain = this.ctx.createGain();
+        this.padGain.gain.value = 0.08;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 350;
+        this.padGain.connect(filter);
+        filter.connect(this.ctx.destination);
 
-      this.padGain.connect(filter);
-      filter.connect(this.ctx.destination);
+        const playChord = () => {
+          if (!this.ctx || this.muted) return;
+          try {
+            this.padChordIndex = (this.padChordIndex + 1) % chords.length;
+            const chord = chords[this.padChordIndex];
+            if (this.padOscs) {
+              this.padOscs.forEach(o => { try { o.stop(); } catch(e){} });
+            }
+            this.padOscs = chord.map(freq => {
+              const osc = this.ctx.createOscillator();
+              osc.type = 'triangle';
+              osc.frequency.value = freq * 0.5;
+              osc.connect(this.padGain);
+              osc.start();
+              return osc;
+            });
+          } catch (e) {}
+        };
+        playChord();
+        this.musicInterval = setInterval(playChord, 8000);
 
-      setInterval(() => {
-        if (!this.ctx || this.muted) return;
-        try {
-          this.padChordIndex = (this.padChordIndex + 1) % chords.length;
-          const chord = chords[this.padChordIndex];
-          if (this.padOscs) {
-            this.padOscs.forEach(o => { try { o.stop(); } catch(e){} });
-          }
-          this.padOscs = chord.map(freq => {
+      } else if (station === 'NEON NIGHTS') {
+        const arpNotes = [220, 261.63, 329.63, 392.00, 440, 523.25];
+        this.padGain = this.ctx.createGain();
+        this.padGain.gain.value = 0.06;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 800;
+        this.padGain.connect(filter);
+        filter.connect(this.ctx.destination);
+
+        let noteIdx = 0;
+        const playArp = () => {
+          if (!this.ctx || this.muted) return;
+          try {
+            if (this.padOscs) {
+              this.padOscs.forEach(o => { try { o.stop(); } catch(e){} });
+            }
+            const freq = arpNotes[noteIdx % arpNotes.length];
+            noteIdx++;
             const osc = this.ctx.createOscillator();
-            osc.type = 'triangle';
-            osc.frequency.value = freq * 0.5;
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq;
             osc.connect(this.padGain);
             osc.start();
-            return osc;
-          });
-        } catch (e) {}
-      }, 8000);
+            this.padOscs = [osc];
+          } catch (e) {}
+        };
+        playArp();
+        this.musicInterval = setInterval(playArp, 1800);
+
+      } else if (station === 'PALM RADIO') {
+        const mellowChords = [
+          [261.63, 329.63, 392.00],
+          [220.00, 261.63, 329.63],
+          [196.00, 246.94, 293.66]
+        ];
+        this.padGain = this.ctx.createGain();
+        this.padGain.gain.value = 0.07;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+        this.padGain.connect(filter);
+        filter.connect(this.ctx.destination);
+
+        const playMellow = () => {
+          if (!this.ctx || this.muted) return;
+          try {
+            this.padChordIndex = (this.padChordIndex + 1) % mellowChords.length;
+            const chord = mellowChords[this.padChordIndex];
+            if (this.padOscs) {
+              this.padOscs.forEach(o => { try { o.stop(); } catch(e){} });
+            }
+            this.padOscs = chord.map(freq => {
+              const osc = this.ctx.createOscillator();
+              osc.type = 'sine';
+              osc.frequency.value = freq * 0.75;
+              osc.connect(this.padGain);
+              osc.start();
+              return osc;
+            });
+          } catch (e) {}
+        };
+        playMellow();
+        this.musicInterval = setInterval(playMellow, 10000);
+      }
     } catch (e) {}
   }
 }

@@ -38,18 +38,42 @@ export class HUD {
       }
     });
     document.body.appendChild(this.muteBtn);
+
+    // Radio Station Display
+    this.radioDisplay = document.createElement('div');
+    this.radioDisplay.id = 'radio-display';
+    this.radioDisplay.style.cssText = 'position:absolute; top:72px; right:30px; color:#fbbf24; font-family:monospace; font-size:13px; font-weight:bold; background:rgba(15,23,42,0.85); padding:6px 12px; border-radius:6px; border:1px solid rgba(245,158,11,0.4); z-index:100;';
+    this.radioDisplay.textContent = 'SOLMAR FM (R)';
+    document.body.appendChild(this.radioDisplay);
+
+    // Respect Meter Display (scale 0-7)
+    this.respectDisplay = document.createElement('div');
+    this.respectDisplay.id = 'respect-display';
+    this.respectDisplay.style.cssText = 'position:absolute; top:20px; left:260px; color:#fbbf24; font-family:monospace; font-size:14px; font-weight:bold; background:rgba(15,23,42,0.85); padding:10px 16px; border-radius:8px; border:1px solid rgba(245,158,11,0.4); z-index:100;';
+    this.respectDisplay.innerHTML = '<div style="font-size:11px; color:#9ca3af; margin-bottom:2px;">RESPECT</div><div id="respect-stars" style="letter-spacing:2px; font-size:16px;">☆☆☆☆☆☆☆</div>';
+    document.body.appendChild(this.respectDisplay);
+  }
+
+  updateRadioStation(stationName) {
+    if (this.radioDisplay) {
+      this.radioDisplay.textContent = `${stationName} (R)`;
+    }
   }
 
   show() {
     if (this.hudContainer) this.hudContainer.classList.remove('hidden');
     if (this.speedDisplay) this.speedDisplay.style.display = 'block';
     if (this.muteBtn) this.muteBtn.style.display = 'block';
+    if (this.radioDisplay) this.radioDisplay.style.display = 'block';
+    if (this.respectDisplay) this.respectDisplay.style.display = 'block';
   }
 
   hide() {
     if (this.hudContainer) this.hudContainer.classList.add('hidden');
     if (this.speedDisplay) this.speedDisplay.style.display = 'none';
     if (this.muteBtn) this.muteBtn.style.display = 'none';
+    if (this.radioDisplay) this.radioDisplay.style.display = 'none';
+    if (this.respectDisplay) this.respectDisplay.style.display = 'none';
     if (this.stolenBanner) this.stolenBanner.style.opacity = '0';
   }
 
@@ -75,6 +99,20 @@ export class HUD {
       starStr += i < stars ? '★' : '☆';
     }
     this.wantedStars.textContent = starStr;
+
+    // Respect meter update (0-7 scale)
+    const respectCount = window.game && window.game.saveData && window.game.saveData.respect !== undefined
+      ? window.game.saveData.respect
+      : (window.game && window.game.missionManager ? window.game.missionManager.currentIndex : 0);
+    const clampedRespect = Math.max(0, Math.min(7, respectCount));
+    const respectEl = document.getElementById('respect-stars');
+    if (respectEl) {
+      let rStr = '';
+      for (let i = 0; i < 7; i++) {
+        rStr += i < clampedRespect ? '★' : '☆';
+      }
+      respectEl.textContent = rStr;
+    }
 
     let missionObj = '';
     if (window.game && window.game.missionManager) {

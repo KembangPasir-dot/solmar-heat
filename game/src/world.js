@@ -38,10 +38,10 @@ export class World {
         const bh = blockSize;
 
         const bHeight = this.random.range(30, districtIdx === 1 ? 180 : 90);
-        // Vary building color slightly with random tint/shading
+        // Vary building color slightly with random tint/shading (warm slate, brick, teal accents)
         const baseColors = districtIdx === 1 
-          ? ['#1e293b', '#334155', '#475569', '#0f172a', '#252f4a'] 
-          : ['#292524', '#44403c', '#1c1917', '#57534e', '#38322e'];
+          ? ['#263342', '#3d4f61', '#4d3b2e', '#1e3a3a', '#2d333b', '#422f27'] 
+          : ['#3b2f27', '#4d3b2e', '#292524', '#593d31', '#1f3834', '#3d3834'];
         const bColor = this.random.choice(baseColors);
 
         // Building rooftop boxes / HVAC units

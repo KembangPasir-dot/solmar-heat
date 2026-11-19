@@ -14,7 +14,11 @@ export const SaveSystem = {
     try {
       const data = localStorage.getItem(this.KEY);
       if (data) {
-        return JSON.parse(data);
+        const parsed = JSON.parse(data);
+        if (parsed.respect === undefined) {
+          parsed.respect = parsed.completedMissions ? parsed.completedMissions.length : (parsed.missionIndex || 0);
+        }
+        return parsed;
       }
     } catch (e) {
       console.warn('Failed to load game state:', e);
@@ -28,6 +32,7 @@ export const SaveSystem = {
       health: 100,
       missionIndex: 0,
       completedMissions: [],
+      respect: 0,
       x: 0,
       y: 0
     };
