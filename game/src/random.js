@@ -1,3 +1,4 @@
+// Gives game systems repeatable numbers and list picks from a starting seed.
 // SOLMAR HEAT — Seeded Random (Mulberry32)
 export class Random {
   constructor(seed = 12345) {

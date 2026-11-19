@@ -1,3 +1,4 @@
+// Sets the scale of Solmar Bay, player movement speeds, and the colors of each district.
 // SOLMAR HEAT — Tuning Constants
 export const CONFIG = {
   WORLD_SIZE: 4000,
