@@ -38,35 +38,18 @@ export class HUD {
       }
     });
     document.body.appendChild(this.muteBtn);
-
-    // Radio Station Label
-    this.radioLabel = document.createElement('div');
-    this.radioLabel.id = 'radio-label';
-    this.radioLabel.textContent = 'RADIO: SOLMAR FM (R)';
-    this.radioLabel.style.cssText = 'position:absolute; top:72px; right:30px; color:#fbbf24; font-family:monospace; font-size:13px; background:rgba(15,23,42,0.9); padding:4px 10px; border-radius:4px; border:1px solid rgba(245,158,11,0.4); z-index:100;';
-    document.body.appendChild(this.radioLabel);
-
-    // Respect Meter Display (scale 0-7)
-    this.respectDisplay = document.createElement('div');
-    this.respectDisplay.id = 'respect-display';
-    this.respectDisplay.style.cssText = 'position:absolute; top:20px; left:220px; color:#fbbf24; font-family:monospace; font-size:14px; font-weight:bold; background:rgba(15,23,42,0.9); padding:8px 14px; border-radius:6px; border:1px solid #fbbf24; z-index:100;';
-    document.body.appendChild(this.respectDisplay);
   }
 
   show() {
     if (this.hudContainer) this.hudContainer.classList.remove('hidden');
     if (this.speedDisplay) this.speedDisplay.style.display = 'block';
     if (this.muteBtn) this.muteBtn.style.display = 'block';
-    if (this.radioLabel) this.radioLabel.style.display = 'block';
-    if (this.respectDisplay) this.respectDisplay.style.display = 'block';
   }
 
   hide() {
     if (this.hudContainer) this.hudContainer.classList.add('hidden');
     if (this.speedDisplay) this.speedDisplay.style.display = 'none';
     if (this.muteBtn) this.muteBtn.style.display = 'none';
-    if (this.radioLabel) this.radioLabel.style.display = 'none';
-    if (this.respectDisplay) this.respectDisplay.style.display = 'none';
     if (this.stolenBanner) this.stolenBanner.style.opacity = '0';
   }
 
@@ -85,16 +68,6 @@ export class HUD {
     const healthPct = Math.max(0, Math.min(100, player.health));
     this.healthBar.style.width = `${healthPct}%`;
     this.moneyDisplay.textContent = `$${player.money.toLocaleString()}`;
-
-    const respect = window.game && window.game.missionManager ? window.game.missionManager.currentIndex : 0;
-    const respectStars = Math.max(0, Math.min(7, respect));
-    let respectStr = '';
-    for (let i = 0; i < 7; i++) {
-      respectStr += i < respectStars ? '★' : '☆';
-    }
-    if (this.respectDisplay) {
-      this.respectDisplay.textContent = `RESPECT: ${respectStr} (${respect}/7)`;
-    }
 
     const stars = Math.max(0, Math.min(5, player.wanted || 0));
     let starStr = '';

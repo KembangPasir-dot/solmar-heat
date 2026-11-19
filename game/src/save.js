@@ -27,7 +27,6 @@ export const SaveSystem = {
       money: 500,
       health: 100,
       missionIndex: 0,
-      respect: 0,
       completedMissions: [],
       x: 0,
       y: 0

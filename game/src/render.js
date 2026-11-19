@@ -31,7 +31,7 @@ export class Renderer {
     const width = this.canvas.width;
     const height = this.canvas.height;
 
-    ctx.fillStyle = '#171208';
+    ctx.fillStyle = '#0a0c14';
     ctx.fillRect(0, 0, width, height);
 
     ctx.save();
@@ -148,7 +148,7 @@ export class Renderer {
 
   renderWorldBackground(ctx, world) {
     const size = CONFIG.WORLD_SIZE;
-    ctx.fillStyle = '#261e14'; // Warmer sidewalk/road edge tint
+    ctx.fillStyle = '#1e2230'; // Lighter sidewalk/road edge tint
     ctx.fillRect(-size / 2, -size / 2, size, size);
 
     const blockSize = CONFIG.BLOCK_SIZE;
@@ -156,7 +156,7 @@ export class Renderer {
     const step = blockSize + roadWidth;
 
     // Road surface
-    ctx.fillStyle = '#1a1614';
+    ctx.fillStyle = '#111420';
     for (let x = -size / 2; x <= size / 2; x += step) {
       ctx.fillRect(x, -size / 2, roadWidth, size);
     }
@@ -164,8 +164,8 @@ export class Renderer {
       ctx.fillRect(-size / 2, y, size, roadWidth);
     }
 
-    // Dashed center lane markings (warm golden amber)
-    ctx.strokeStyle = '#fbbf24';
+    // Dashed center lane markings (yellow)
+    ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 3;
     ctx.setLineDash([16, 16]);
 
@@ -203,7 +203,7 @@ export class Renderer {
       // Windows based on style
       if (b.windowStyle === 0) {
         // Grid windows
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.88)';
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.6)';
         const winSize = 8;
         const winGap = 16;
         for (let wx = b.x + 12; wx < b.x + b.w - 12; wx += winGap) {
@@ -215,13 +215,13 @@ export class Renderer {
         }
       } else if (b.windowStyle === 1) {
         // Vertical strip windows
-        ctx.fillStyle = 'rgba(125, 211, 252, 0.85)';
+        ctx.fillStyle = 'rgba(96, 165, 250, 0.65)';
         for (let wx = b.x + 14; wx < b.x + b.w - 14; wx += 20) {
           ctx.fillRect(wx, b.y + 16, 10, b.h - 32);
         }
       } else {
         // Sparse warm lights
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.95)';
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.8)';
         ctx.fillRect(b.x + 20, b.y + 20, 12, 12);
         ctx.fillRect(b.x + b.w - 32, b.y + 20, 12, 12);
         ctx.fillRect(b.x + 20, b.y + b.h - 32, 12, 12);
@@ -380,9 +380,9 @@ export class Renderer {
         ctx.arc(lamp.x, lamp.y, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = 'rgba(251, 191, 36, 0.45)';
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
         ctx.beginPath();
-        ctx.arc(lamp.x, lamp.y, 45, 0, Math.PI * 2);
+        ctx.arc(lamp.x, lamp.y, 35, 0, Math.PI * 2);
         ctx.fill();
       }
     }

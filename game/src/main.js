@@ -103,10 +103,6 @@ class Game {
         if (this.missionManager.state === 'FAILED') {
           clickSound();
           this.retryCurrentMission();
-        } else if (this.state === 'PLAYING') {
-          if (this.audioManager) {
-            this.audioManager.cycleStation();
-          }
         }
       }
     });
@@ -116,8 +112,7 @@ class Game {
     this.saveData = {
       money: this.player ? this.player.money : 500,
       health: this.player ? this.player.health : 100,
-      missionIndex: this.missionManager ? this.missionManager.currentIndex : 0,
-      respect: this.missionManager ? this.missionManager.currentIndex : 0,
+      missionIndex: this.missionManager.currentIndex,
       completedMissions: [],
       x: this.player ? this.player.x : 0,
       y: this.player ? this.player.y : 0
@@ -159,7 +154,7 @@ class Game {
 
     this.player.money = saved.money ?? 500;
     this.player.health = saved.health ?? 100;
-    this.missionManager.currentIndex = saved.missionIndex ?? saved.respect ?? 0;
+    this.missionManager.currentIndex = saved.missionIndex ?? 0;
     this.saveData = saved;
 
     this.hideAllScreens();

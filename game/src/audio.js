@@ -14,9 +14,6 @@ export class AudioManager {
     this.padGain = null;
     this.padChordIndex = 0;
 
-    this.stations = ['SOLMAR FM', 'NEON NIGHTS', 'PALM RADIO'];
-    this.currentStationIndex = 0;
-
     this.setupListeners();
   }
 
@@ -220,42 +217,21 @@ export class AudioManager {
     } catch (e) {}
   }
 
-  getCurrentStationName() {
-    return this.stations[this.currentStationIndex];
-  }
-
-  cycleStation() {
-    this.currentStationIndex = (this.currentStationIndex + 1) % this.stations.length;
-    const name = this.getCurrentStationName();
-    const lbl = document.getElementById('radio-label');
-    if (lbl) {
-      lbl.textContent = `RADIO: ${name} (R)`;
-    }
-    this.playClick();
-  }
-
   startAmbientPad() {
     try {
       if (!this.ctx) return;
-      const solmarChords = [
+      const chords = [
         [130.81, 164.81, 196.00],
         [110.00, 138.59, 164.81],
         [98.00, 123.47, 146.83],
         [116.54, 146.83, 174.61]
       ];
-      const neonArp = [220, 261.63, 329.63, 392, 440, 523.25];
-      const palmChords = [
-        [146.83, 220.00, 261.63],
-        [123.47, 185.00, 220.00],
-        [110.00, 164.81, 196.00]
-      ];
-
       this.padGain = this.ctx.createGain();
       this.padGain.gain.value = 0.08;
 
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.value = 600;
+      filter.frequency.value = 350;
 
       this.padGain.connect(filter);
       filter.connect(this.ctx.destination);
@@ -263,61 +239,21 @@ export class AudioManager {
       setInterval(() => {
         if (!this.ctx || this.muted) return;
         try {
+          this.padChordIndex = (this.padChordIndex + 1) % chords.length;
+          const chord = chords[this.padChordIndex];
           if (this.padOscs) {
             this.padOscs.forEach(o => { try { o.stop(); } catch(e){} });
-            this.padOscs = [];
           }
-
-          if (this.currentStationIndex === 0) {
-            // SOLMAR FM: Ambient pad
-            this.padChordIndex = (this.padChordIndex + 1) % solmarChords.length;
-            const chord = solmarChords[this.padChordIndex];
-            this.padOscs = chord.map(freq => {
-              const osc = this.ctx.createOscillator();
-              osc.type = 'triangle';
-              osc.frequency.value = freq * 0.5;
-              osc.connect(this.padGain);
-              osc.start();
-              return osc;
-            });
-          } else if (this.currentStationIndex === 1) {
-            // NEON NIGHTS: Synthwave arpeggio loop
-            let step = 0;
-            const arpInterval = setInterval(() => {
-              if (!this.ctx || this.muted || this.currentStationIndex !== 1) {
-                clearInterval(arpInterval);
-                return;
-              }
-              try {
-                const freq = neonArp[step % neonArp.length];
-                step++;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.15);
-              } catch (e) {}
-            }, 200);
-          } else {
-            // PALM RADIO: Mellow chords
-            this.padChordIndex = (this.padChordIndex + 1) % palmChords.length;
-            const chord = palmChords[this.padChordIndex];
-            this.padOscs = chord.map(freq => {
-              const osc = this.ctx.createOscillator();
-              osc.type = 'sine';
-              osc.frequency.value = freq;
-              osc.connect(this.padGain);
-              osc.start();
-              return osc;
-            });
-          }
+          this.padOscs = chord.map(freq => {
+            const osc = this.ctx.createOscillator();
+            osc.type = 'triangle';
+            osc.frequency.value = freq * 0.5;
+            osc.connect(this.padGain);
+            osc.start();
+            return osc;
+          });
         } catch (e) {}
-      }, 7000);
+      }, 8000);
     } catch (e) {}
   }
 }
