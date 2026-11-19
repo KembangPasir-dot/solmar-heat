@@ -79,6 +79,16 @@ export const STORY_DATA = {
       objectiveText: 'Chase down the Coral Kings boss, survive the shootout, and reach the finish line at the lighthouse.',
       payout: 2500,
       targetLocation: { x: 600, y: 100 }
+    },
+    {
+      id: 7,
+      title: 'Sunset Run',
+      briefingTitle: 'MISSION 7: SUNSET RUN',
+      briefingText: 'Marisol: "One last job, Reef. The Kings seized cash is sitting at the Marina impound — grab it and bring it home before the harbor patrol wakes up. Step on it."',
+      objectiveText: 'Grab the seized cash at the Marina and deliver to Marisol garage before time runs out.',
+      payout: 3000,
+      targetLocation: { x: -450, y: 550 },
+      timeLimit: 90
     }
   ]
 };

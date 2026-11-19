@@ -115,6 +115,12 @@ export class MissionManager {
           this.completeMission();
         }
         break;
+
+      case 6: // Mission 7: Sunset Run
+        if (dist < 60) {
+          this.completeMission();
+        }
+        break;
     }
   }
 
