@@ -49,7 +49,7 @@ export class HUD {
     // Respect Meter Display (scale 0-7)
     this.respectDisplay = document.createElement('div');
     this.respectDisplay.id = 'respect-display';
-    this.respectDisplay.style.cssText = 'position:absolute; top:20px; left:260px; color:#fbbf24; font-family:monospace; font-size:14px; font-weight:bold; background:rgba(15,23,42,0.85); padding:10px 16px; border-radius:8px; border:1px solid rgba(245,158,11,0.4); z-index:100;';
+    this.respectDisplay.style.cssText = 'position:absolute; top:300px; right:30px; color:#fbbf24; font-family:monospace; font-size:14px; font-weight:bold; background:rgba(15,23,42,0.85); padding:10px 16px; border-radius:8px; border:1px solid rgba(245,158,11,0.4); z-index:100;';
     this.respectDisplay.innerHTML = '<div style="font-size:11px; color:#9ca3af; margin-bottom:2px;">RESPECT</div><div id="respect-stars" style="letter-spacing:2px; font-size:16px;">☆☆☆☆☆☆☆</div>';
     document.body.appendChild(this.respectDisplay);
   }

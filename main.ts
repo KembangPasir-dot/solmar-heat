@@ -1,8 +1,8 @@
-// SOLMAR HEAT — A 2D top-down open-world crime game set in Solmar Bay at sunset.
-// Built for make.fun gta6-01 bounty. Features an original coastal city with six
-// distinct districts, on-foot player movement, dynamic camera, minimap, HUD,
-// and title/pause screens. Running on static files with zero network dependencies.
-//
+// SOLMAR HEAT is a sunset-set crime story across the streets of Solmar Bay.
+// Play through seven story missions, including Sunset Run, while building a
+// respect rating and exploring the coast on foot or behind the wheel. Three
+// radio stations cycle with R and mute with M, under a warm golden-hour grade.
+// The game ships as static files and runs without network services.
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
