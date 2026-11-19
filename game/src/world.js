@@ -40,8 +40,8 @@ export class World {
         const bHeight = this.random.range(30, districtIdx === 1 ? 180 : 90);
         // Vary building color slightly with random tint/shading
         const baseColors = districtIdx === 1 
-          ? ['#1e293b', '#334155', '#475569', '#0f172a', '#252f4a'] 
-          : ['#292524', '#44403c', '#1c1917', '#57534e', '#38322e'];
+          ? ['#253042', '#3a445c', '#4a3832', '#1f3333', '#32223a'] 
+          : ['#33251d', '#422a1f', '#25303a', '#1f3533', '#3a2128'];
         const bColor = this.random.choice(baseColors);
 
         // Building rooftop boxes / HVAC units
