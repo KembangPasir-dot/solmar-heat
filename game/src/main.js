@@ -262,7 +262,16 @@ class Game {
         this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60, this.effectsManager);
       }
 
+      // Restore simulation wrecks only for the staged screenshot render.
+      for (const vehicle of [...this.trafficManager.cars, ...this.policeManager.policeCars]) {
+        if (vehicle.wrecked) {
+          vehicle.wrecked = false;
+          vehicle.health = vehicle.maxHealth;
+        }
+      }
+
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
+      this.hud.showStolen();
       this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;
@@ -275,16 +284,16 @@ class Game {
       this.combatManager = new CombatManager(this.world);
 
       this.player.wanted = 3;
-      const car = new Vehicle(380, 150, Math.PI / 2, '#ef4444');
-      car.speed = 340;
+      const car = new Vehicle(380, 350, Math.PI / 2, '#ef4444');
+      car.speed = 280;
       this.trafficManager.cars.push(car);
       this.player.enterCar(car, this.hud);
 
-      const p1 = new Vehicle(380, 270, Math.PI / 2, '#1e3a8a');
-      p1.speed = 360;
+      const p1 = new Vehicle(380, 220, Math.PI / 2, '#1e3a8a');
+      p1.speed = 300;
       p1.driver = 'police';
-      const p2 = new Vehicle(380, 350, Math.PI / 2, '#1e3a8a');
-      p2.speed = 350;
+      const p2 = new Vehicle(380, 140, Math.PI / 2, '#1e3a8a');
+      p2.speed = 295;
       p2.driver = 'police';
       this.policeManager.policeCars.push(p1, p2);
 
@@ -303,17 +312,31 @@ class Game {
         this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60, this.effectsManager);
       }
 
+      // Restore simulation wrecks only for the staged screenshot render.
+      for (const vehicle of [...this.trafficManager.cars, ...this.policeManager.policeCars]) {
+        if (vehicle.wrecked) {
+          vehicle.wrecked = false;
+          vehicle.health = vehicle.maxHealth;
+        }
+      }
+
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
+      this.hud.showStolen();
       this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;
     } else if (shot === 'mission') {
       this.world = new World(seed);
-      this.player = new Player(100, 100);
+      this.player = new Player(0, 0);
       this.trafficManager = new TrafficManager(this.world, seed);
       this.pedestrianManager = new PedestrianManager(this.world, seed);
       this.policeManager = new PoliceManager(this.world, seed);
       this.combatManager = new CombatManager(this.world);
+
+      const car = new Vehicle(380, -300, Math.PI / 2, '#ef4444');
+      car.speed = 180;
+      this.trafficManager.cars.push(car);
+      this.player.enterCar(car, this.hud);
 
       this.missionManager.startBriefing(0);
       this.missionManager.beginActiveMission();
@@ -322,7 +345,27 @@ class Game {
       this.hideAllScreens();
       this.hud.show();
 
+      const control = { forward: true, reverse: false, left: false, right: false, handbrake: false };
+      for (let i = 0; i < 24; i++) {
+        this.trafficManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
+        this.pedestrianManager.update(1 / 60, this.player.x, this.player.y, this.trafficManager.cars);
+        car.update(1 / 60, control, this.world, this.trafficManager.cars);
+        this.player.x = car.x;
+        this.player.y = car.y;
+        this.player.angle = car.angle;
+        this.renderer.updateCamera(this.player.x, this.player.y, 1 / 60, this.effectsManager);
+      }
+
+      // Restore simulation wrecks only for the staged screenshot render.
+      for (const vehicle of [...this.trafficManager.cars, ...this.policeManager.policeCars]) {
+        if (vehicle.wrecked) {
+          vehicle.wrecked = false;
+          vehicle.health = vehicle.maxHealth;
+        }
+      }
+
       this.hud.update(this.player, this.world, this.combatManager, this.policeManager);
+      this.hud.showStolen();
       this.renderer.render(this.world, this.player, this.input, this.trafficManager, this.pedestrianManager, this.policeManager, this.combatManager, this.effectsManager);
 
       window.__shotReady = true;

@@ -15,6 +15,7 @@ export class HUD {
     this.stolenBanner.style.cssText = 'position:absolute; top:22%; left:50%; transform:translate(-50%,-50%); color:#f59e0b; font-family:monospace; font-size:32px; font-weight:bold; background:rgba(15, 23, 42, 0.92); border:2px solid #f59e0b; padding:12px 28px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,0.85); text-shadow:0 2px 4px rgba(0,0,0,0.8); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:100; letter-spacing:2px;';
     this.stolenBanner.textContent = 'VEHICLE STOLEN';
     document.body.appendChild(this.stolenBanner);
+    this.stolenTimer = null;
 
     this.speedDisplay = document.createElement('div');
     this.speedDisplay.id = 'speed-display';
@@ -79,9 +80,14 @@ export class HUD {
 
   showStolen() {
     if (this.stolenBanner) {
+      if (this.stolenTimer) {
+        clearTimeout(this.stolenTimer);
+        this.stolenTimer = null;
+      }
       this.stolenBanner.style.opacity = '1';
-      setTimeout(() => {
+      this.stolenTimer = setTimeout(() => {
         if (this.stolenBanner) this.stolenBanner.style.opacity = '0';
+        this.stolenTimer = null;
       }, 2200);
     }
   }
@@ -119,9 +125,12 @@ export class HUD {
       missionObj = window.game.missionManager.getCurrentObjectiveText();
     }
 
-    const finalObjective = player.inCar
-      ? 'Cruising Solmar Bay. Press E to exit car.'
-      : (missionObj || objective || 'Explore Solmar Bay. Find a car and press E to steal.');
+    const hasActiveMission = window.game && window.game.missionManager && window.game.missionManager.state === 'ACTIVE';
+    const finalObjective = hasActiveMission
+      ? missionObj
+      : (player.inCar
+        ? 'Cruising Solmar Bay. Press E to exit car.'
+        : (missionObj || objective || 'Explore Solmar Bay. Find a car and press E to steal.'));
 
     if (this.objectiveText) {
       this.objectiveText.textContent = finalObjective;
